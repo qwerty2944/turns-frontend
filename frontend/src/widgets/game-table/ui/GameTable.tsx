@@ -17,7 +17,7 @@ export const GameTable = () => {
 
   if (!hydrated) {
     return (
-      <div className="container-narrow">
+      <div className="play-shell">
         <div className="panel"><p className="muted">불러오는 중…</p></div>
       </div>
     );
@@ -27,7 +27,7 @@ export const GameTable = () => {
   const game = getGame(gameId);
   if (!game) {
     return (
-      <div className="container-narrow">
+      <div className="play-shell">
         <div className="panel">
           <p className="error">알 수 없는 게임: {gameId}</p>
         </div>

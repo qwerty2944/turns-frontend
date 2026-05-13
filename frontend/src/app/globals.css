@@ -103,6 +103,43 @@ input:focus { outline: none; border-color: var(--gold); }
   padding: 0 1rem;
 }
 
+/* ─── Play shell — full-viewport game layout ──────────────────────── */
+.play-shell {
+  height: 100dvh;
+  max-width: 1500px;
+  margin: 0 auto;
+  padding: 12px 16px;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 12px;
+  overflow: hidden;
+}
+.play-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+.play-side {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto auto;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+.play-side > .panel { padding: 0.9rem 1rem; }
+.play-side .panel-log {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+@media (max-width: 1024px) {
+  .play-grid { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .play-side { grid-template-rows: auto auto auto; max-height: 45dvh; }
+}
+
 /* ─── Card hover tooltip ──────────────────────────────────────────── */
 .card-host {
   position: relative;

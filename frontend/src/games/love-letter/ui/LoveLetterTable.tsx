@@ -184,9 +184,9 @@ export const LoveLetterTable = (props: Props) => {
   };
 
   return (
-    <div className="container-wide">
-      <div className="row" style={{ justifyContent: "space-between", marginBottom: 12 }}>
-        <h1 className="title" style={{ margin: 0 }}>
+    <div className="play-shell">
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <h1 className="title" style={{ margin: 0, fontSize: "1.4rem" }}>
           러브레터 {stateSnap?.roomName ? `· ${stateSnap.roomName}` : ""}
         </h1>
         <div className="row">
@@ -195,30 +195,35 @@ export const LoveLetterTable = (props: Props) => {
         </div>
       </div>
 
-      {status.kind === "connecting" && <p className="muted">방에 연결 중…</p>}
-      {status.kind === "error" && <div className="error">{status.error}</div>}
+      {status.kind === "connecting" && <p className="muted" style={{ margin: 0 }}>방에 연결 중…</p>}
+      {status.kind === "error" && <div className="error" style={{ marginTop: 0 }}>{status.error}</div>}
       {status.kind === "closed" && <RoomClosedRedirect />}
 
       {phase === "lobby" && stateSnap && (
-        <div className="col" style={{ gap: 12 }}>
-          <LobbyView
-            state={stateSnap}
-            meSid={meSid!}
-            isHost={isHost}
-            onReady={() => room?.send("toggleReady")}
-            onStart={() => room?.send("startGame")}
-          />
-          <ActionLog log={stateSnap?.log ?? []} />
-          <ChatBox
-            value={chatInput}
-            onChange={setChatInput}
-            onSubmit={sendChat}
-          />
+        <div className="play-grid">
+          <div className="col" style={{ minHeight: 0, overflowY: "auto" }}>
+            <LobbyView
+              state={stateSnap}
+              meSid={meSid!}
+              isHost={isHost}
+              onReady={() => room?.send("toggleReady")}
+              onStart={() => room?.send("startGame")}
+            />
+          </div>
+          <div className="play-side">
+            <ActionLog log={stateSnap?.log ?? []} />
+            <ChatBox
+              value={chatInput}
+              onChange={setChatInput}
+              onSubmit={sendChat}
+            />
+            <ScorePanel players={players} meSid={meSid!} />
+          </div>
         </div>
       )}
 
       {phase !== "lobby" && (
-        <>
+        <div className="play-grid">
           <TableView
             opponents={opponents}
             currentTurnSid={currentTurnSid}
@@ -248,30 +253,16 @@ export const LoveLetterTable = (props: Props) => {
             overlayWrapRef={overlayWrapRef}
             overlayRef={overlayRef}
           />
-
-          <div className="row" style={{ marginTop: 12, alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
-            <div style={{ flex: "1 1 320px", display: "flex", flexDirection: "column", gap: 12 }}>
-              <ActionLog log={stateSnap?.log ?? []} />
-              <ChatBox
-                value={chatInput}
-                onChange={setChatInput}
-                onSubmit={sendChat}
-              />
-            </div>
-            <div className="panel col" style={{ flex: "1 1 240px" }}>
-              <h3 className="title" style={{ margin: 0, fontSize: "1rem" }}>점수</h3>
-              {players.map((p) => (
-                <div key={p.sessionId} className="row" style={{ justifyContent: "space-between" }}>
-                  <span>
-                    {p.sessionId === meSid ? "나" : p.nickname}
-                    {p.eliminated && " 💀"}
-                  </span>
-                  <span className="muted">❤ {p.tokens}</span>
-                </div>
-              ))}
-            </div>
+          <div className="play-side">
+            <ActionLog log={stateSnap?.log ?? []} />
+            <ChatBox
+              value={chatInput}
+              onChange={setChatInput}
+              onSubmit={sendChat}
+            />
+            <ScorePanel players={players} meSid={meSid!} />
           </div>
-        </>
+        </div>
       )}
 
       {peek && (
@@ -409,11 +400,13 @@ const TableView = ({
       className="panel"
       style={{
         position: "relative",
-        padding: 20,
+        padding: 16,
         display: "grid",
         gridTemplateRows: "auto 1fr auto",
-        gap: 24,
-        minHeight: 480,
+        gap: 16,
+        minHeight: 0,
+        height: "100%",
+        overflow: "hidden",
         background:
           "radial-gradient(60% 80% at 50% 45%, rgba(122,63,255,0.18) 0%, transparent 60%), linear-gradient(180deg, rgba(20,13,46,0.9) 0%, rgba(33,25,74,0.9) 100%)",
       }}
@@ -659,6 +652,25 @@ const ChatBox = ({
       전송
     </button>
   </form>
+);
+
+const ScorePanel = ({ players, meSid }: { players: any[]; meSid: string }) => (
+  <div className="panel col" style={{ gap: 6 }}>
+    <h3 className="title" style={{ margin: 0, fontSize: "0.95rem" }}>점수</h3>
+    {players.map((p) => (
+      <div
+        key={p.sessionId}
+        className="row"
+        style={{ justifyContent: "space-between", fontSize: 13 }}
+      >
+        <span>
+          {p.sessionId === meSid ? "나" : p.nickname}
+          {p.eliminated && " 💀"}
+        </span>
+        <span className="muted">❤ {p.tokens}</span>
+      </div>
+    ))}
+  </div>
 );
 
 const Modal = ({ children }: { children: React.ReactNode }) => (

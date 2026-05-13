@@ -64,7 +64,7 @@ export const ActionLog = ({ log }: { log: LogEntryView[] }) => {
   }, [log.length]);
 
   return (
-    <div className="panel col" style={{ gap: 8 }}>
+    <div className="panel panel-log col" style={{ gap: 8 }}>
       <div className="row" style={{ justifyContent: "space-between" }}>
         <h3 className="title" style={{ margin: 0, fontSize: "1rem" }}>
           액션 로그
@@ -76,7 +76,8 @@ export const ActionLog = ({ log }: { log: LogEntryView[] }) => {
       <div
         ref={ref}
         style={{
-          maxHeight: 360,
+          flex: 1,
+          minHeight: 0,
           overflowY: "auto",
           display: "flex",
           flexDirection: "column",

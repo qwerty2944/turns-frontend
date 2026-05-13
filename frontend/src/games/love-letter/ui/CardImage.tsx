@@ -49,9 +49,16 @@ export const CardImage = ({ card, size = 64, faceDown, noTooltip }: Props) => {
               gap: 6,
               flex: 1,
               minWidth: 0,
+              maxWidth: "100%",
             }}
           >
-            <strong style={{ color: "var(--gold-soft)", fontSize: 16 }}>
+            <strong
+              style={{
+                color: "var(--gold-soft)",
+                fontSize: 16,
+                whiteSpace: "normal",
+              }}
+            >
               {card}. {CARD_NAMES_KR[card]}
             </strong>
             <p
@@ -60,7 +67,9 @@ export const CardImage = ({ card, size = 64, faceDown, noTooltip }: Props) => {
                 color: "var(--text)",
                 fontSize: 13,
                 lineHeight: 1.5,
-                wordBreak: "keep-all",
+                whiteSpace: "normal",
+                wordBreak: "break-word",
+                overflowWrap: "anywhere",
               }}
             >
               {CARD_DESC_KR[card]}

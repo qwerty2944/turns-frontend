@@ -116,9 +116,10 @@ input:focus { outline: none; border-color: var(--gold); }
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  width: 300px;
-  max-width: calc(100vw - 24px);
+  width: 280px;
+  max-width: min(320px, calc(100vw - 24px));
   padding: 12px;
+  box-sizing: border-box;
   background: rgba(20, 13, 46, 0.98);
   border: 1px solid var(--gold);
   border-radius: 10px;
@@ -129,6 +130,10 @@ input:focus { outline: none; border-color: var(--gold); }
   transition: opacity 0.12s ease, transform 0.12s ease;
   z-index: 60;
   text-align: left;
+  white-space: normal;
+}
+.card-tooltip * {
+  white-space: normal;
 }
 .card-host:hover .card-tooltip {
   opacity: 1;

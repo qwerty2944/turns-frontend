@@ -22,11 +22,13 @@ type Props = {
   roomId?: string;
   roomName?: string;
   maxPlayers?: number;
+  asSpectator?: boolean;
 };
 
 export const LoveLetterTable = (props: Props) => {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const asSpectator = !!props.asSpectator;
 
   const { room, status } = useGameRoom({
     roomName: "love_letter",
@@ -34,6 +36,7 @@ export const LoveLetterTable = (props: Props) => {
     roomId: props.roomId,
     displayName: props.roomName,
     maxPlayers: props.maxPlayers,
+    asSpectator,
   });
 
   const [stateSnap, setStateSnap] = useState<any>(null);
@@ -205,6 +208,19 @@ export const LoveLetterTable = (props: Props) => {
           러브레터 {stateSnap?.roomName ? `· ${stateSnap.roomName}` : ""}
         </h1>
         <div className="row" style={{ gap: 8, flexShrink: 0 }}>
+          {asSpectator && (
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 11,
+                padding: "0.2rem 0.5rem",
+                border: "1px solid var(--accent)",
+                color: "var(--accent)",
+              }}
+            >
+              👁 관전 중
+            </span>
+          )}
           <span className="muted hide-sm">{user?.nickname}</span>
           <button onClick={leave}>나가기</button>
         </div>
@@ -220,18 +236,21 @@ export const LoveLetterTable = (props: Props) => {
             <LobbyView
               state={stateSnap}
               meSid={meSid!}
-              isHost={isHost}
+              isHost={isHost && !asSpectator}
               onReady={() => room?.send("toggleReady")}
               onStart={() => room?.send("startGame")}
+              spectating={asSpectator}
             />
           </div>
           <div className="play-side">
             <ActionLog log={stateSnap?.log ?? []} />
-            <ChatBox
-              value={chatInput}
-              onChange={setChatInput}
-              onSubmit={sendChat}
-            />
+            {!asSpectator && (
+              <ChatBox
+                value={chatInput}
+                onChange={setChatInput}
+                onSubmit={sendChat}
+              />
+            )}
             <ScorePanel players={players} meSid={meSid!} />
           </div>
         </div>
@@ -243,10 +262,11 @@ export const LoveLetterTable = (props: Props) => {
             opponents={opponents}
             currentTurnSid={currentTurnSid}
             deckRemaining={stateSnap?.deckRemaining ?? 0}
-            myHand={myHand}
-            isMyTurn={isMyTurn && !me?.eliminated}
+            myHand={asSpectator ? [] : myHand}
+            isMyTurn={!asSpectator && isMyTurn && !me?.eliminated}
             myEliminated={!!me?.eliminated}
             onPickCard={(c) => {
+              if (asSpectator) return;
               // Countess auto-discard rule still routed through the modal hint.
               const restricted =
                 myHand.includes(CARD.COUNTESS) &&
@@ -260,7 +280,7 @@ export const LoveLetterTable = (props: Props) => {
               setPlaying(c);
             }}
             myTokens={me?.tokens ?? 0}
-            myNickname={user?.nickname ?? "나"}
+            myNickname={asSpectator ? "관전 중" : (user?.nickname ?? "나")}
             myProtected={!!me?.protected}
             seatRefs={seatRefs}
             myHandRef={myHandRef}
@@ -270,11 +290,13 @@ export const LoveLetterTable = (props: Props) => {
           />
           <div className="play-side">
             <ActionLog log={stateSnap?.log ?? []} />
-            <ChatBox
-              value={chatInput}
-              onChange={setChatInput}
-              onSubmit={sendChat}
-            />
+            {!asSpectator && (
+              <ChatBox
+                value={chatInput}
+                onChange={setChatInput}
+                onSubmit={sendChat}
+              />
+            )}
             <ScorePanel players={players} meSid={meSid!} />
           </div>
         </div>
@@ -585,12 +607,14 @@ const LobbyView = ({
   isHost,
   onReady,
   onStart,
+  spectating = false,
 }: {
   state: any;
   meSid: string;
   isHost: boolean;
   onReady: () => void;
   onStart: () => void;
+  spectating?: boolean;
 }) => {
   const players: any[] = Object.values(state.players);
   const ready = players.every((p) => p.ready || p.sessionId === state.hostSessionId);
@@ -634,11 +658,17 @@ const LobbyView = ({
         ))}
       </div>
       <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
-        {!isHost && <button onClick={onReady}>준비 토글</button>}
-        {isHost && (
-          <button onClick={onStart} disabled={players.length < 2 || !ready}>
-            시작
-          </button>
+        {spectating ? (
+          <span className="muted" style={{ fontSize: 13 }}>👁 관전 중 — 게임 시작을 기다리세요</span>
+        ) : (
+          <>
+            {!isHost && <button onClick={onReady}>준비 토글</button>}
+            {isHost && (
+              <button onClick={onStart} disabled={players.length < 2 || !ready}>
+                시작
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

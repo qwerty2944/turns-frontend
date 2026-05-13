@@ -1,5 +1,6 @@
 import "../../shared/polyfill.js";
 import { Schema, ArraySchema, MapSchema, type } from "@colyseus/schema";
+import { Spectator } from "../../shared/colyseus/spectator.js";
 
 export class TapTarget extends Schema {
   @type("number") id: number = 0;
@@ -68,4 +69,6 @@ export class MultitaskState extends Schema {
 
   @type({ map: MultitaskPlayer }) players = new MapSchema<MultitaskPlayer>();
   @type([LogEntry]) log = new ArraySchema<LogEntry>();
+
+  @type({ map: Spectator }) spectators = new MapSchema<Spectator>();
 }

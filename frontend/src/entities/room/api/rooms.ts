@@ -7,6 +7,7 @@ export type RoomInfo = {
   clients: number;
   maxClients: number;
   locked: boolean;
+  spectators?: number;
 };
 
 export const roomsApi = {

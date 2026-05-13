@@ -23,6 +23,15 @@ export const Lobby = () => {
     router.push(`/play?${params.toString()}`);
   };
 
+  const onSpectate = (room: RoomInfo) => {
+    const params = new URLSearchParams({
+      mode: "spectate",
+      game: room.game,
+      roomId: room.roomId,
+    });
+    router.push(`/play?${params.toString()}`);
+  };
+
   return (
     <div className="container-wide">
       <div
@@ -53,7 +62,7 @@ export const Lobby = () => {
         <CreateRoomForm games={GAME_REGISTRY} />
       </div>
 
-      <RoomList onJoin={onJoin} />
+      <RoomList onJoin={onJoin} onSpectate={onSpectate} />
     </div>
   );
 };

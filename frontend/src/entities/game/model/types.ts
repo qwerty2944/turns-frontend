@@ -1,5 +1,13 @@
 import type { ComponentType } from "react";
 
+export type GameTableProps = {
+  roomId?: string;
+  mode: "create" | "join";
+  roomName?: string;
+  maxPlayers?: number;
+  asSpectator?: boolean;
+};
+
 export type GameManifest = {
   id: string;             // matches backend room name
   roomName: string;
@@ -9,5 +17,5 @@ export type GameManifest = {
   maxPlayers: number;
   available: boolean;
   /** React component that renders the table for this game session. */
-  Table: ComponentType<{ roomId?: string; mode: "create" | "join"; roomName?: string; maxPlayers?: number }>;
+  Table: ComponentType<GameTableProps>;
 };

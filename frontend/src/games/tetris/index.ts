@@ -9,8 +9,8 @@ export const tetrisManifest: GameManifest = {
   roomName: "tetris",
   displayName: "테트리스",
   description:
-    "2~6명 동시 대전. 2줄 이상 클리어 시 상대 보드로 가비지 라인 발사. 마지막 1인이 라운드 승리.",
-  minPlayers: 2,
+    "1~6명 대전. 솔로 연습부터 6인 가비지 배틀까지. 2줄 이상 클리어 시 상대 보드로 가비지 발사, 마지막 1인이 라운드 승리.",
+  minPlayers: 1,
   maxPlayers: 6,
   available: true,
   Table,

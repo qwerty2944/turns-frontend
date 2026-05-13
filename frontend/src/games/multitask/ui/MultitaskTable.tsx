@@ -18,6 +18,7 @@ type Props = {
   roomId?: string;
   roomName?: string;
   maxPlayers?: number;
+  asSpectator?: boolean;
 };
 
 type StateSnap = {
@@ -122,6 +123,7 @@ const useNowTick = (intervalMs: number) => {
 export const MultitaskTable = (props: Props) => {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const asSpectator = !!props.asSpectator;
 
   const { room, status } = useGameRoom({
     roomName: "multitask",
@@ -129,6 +131,7 @@ export const MultitaskTable = (props: Props) => {
     roomId: props.roomId,
     displayName: props.roomName,
     maxPlayers: props.maxPlayers,
+    asSpectator,
   });
 
   const [stateSnap, setStateSnap] = useState<StateSnap | null>(null);
@@ -184,9 +187,18 @@ export const MultitaskTable = (props: Props) => {
     router.push("/lobby");
   };
 
-  const sendHold = () => room?.send("input", { kind: "hold" });
-  const sendTap = (cell: number) => room?.send("input", { kind: "tap", cell });
-  const sendMove = (col: number) => room?.send("input", { kind: "move", col });
+  const sendHold = () => {
+    if (asSpectator) return;
+    room?.send("input", { kind: "hold" });
+  };
+  const sendTap = (cell: number) => {
+    if (asSpectator) return;
+    room?.send("input", { kind: "tap", cell });
+  };
+  const sendMove = (col: number) => {
+    if (asSpectator) return;
+    room?.send("input", { kind: "move", col });
+  };
 
   const myView = playerViews.find((p) => p.sessionId === meSid);
 
@@ -232,6 +244,19 @@ export const MultitaskTable = (props: Props) => {
             </span>
           )}
           <span className="muted hide-sm">{user?.nickname}</span>
+          {asSpectator && (
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 11,
+                padding: "0.2rem 0.5rem",
+                border: "1px solid var(--accent)",
+                color: "var(--accent)",
+              }}
+            >
+              👁 관전 중
+            </span>
+          )}
           <button onClick={leave}>나가기</button>
         </div>
       </div>
@@ -253,6 +278,7 @@ export const MultitaskTable = (props: Props) => {
               isHost={isHost}
               onReady={() => room?.send("toggleReady")}
               onStart={() => room?.send("startGame")}
+              spectating={asSpectator}
             />
           </div>
           <div className="play-side">
@@ -371,12 +397,14 @@ const LobbyView = ({
   isHost,
   onReady,
   onStart,
+  spectating = false,
 }: {
   state: StateSnap;
   meSid: string;
   isHost: boolean;
   onReady: () => void;
   onStart: () => void;
+  spectating?: boolean;
 }) => {
   const players = Object.values(state.players);
   const ready = players.every(
@@ -432,9 +460,12 @@ const LobbyView = ({
         ))}
       </div>
       <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
-        {!isHost && <button onClick={onReady}>준비 토글</button>}
-        {isHost && (
-          <button onClick={onStart} disabled={players.length < 2 || !ready}>
+        {spectating && (
+          <span className="muted" style={{ fontSize: 13 }}>👁 관전 중</span>
+        )}
+        {!spectating && !isHost && <button onClick={onReady}>준비 토글</button>}
+        {!spectating && isHost && (
+          <button onClick={onStart} disabled={players.length < 1 || !ready}>
             시작
           </button>
         )}

@@ -32,7 +32,11 @@ export const GameTable = () => {
     );
   }
 
-  const mode = (sp.get("mode") as "create" | "join") || "join";
+  const rawMode = sp.get("mode");
+  const asSpectator = rawMode === "spectate";
+  // Colyseus-side mode: spectate piggybacks on the "join" path (existing room).
+  const mode: "create" | "join" =
+    rawMode === "create" ? "create" : "join";
   const roomId = sp.get("roomId") || undefined;
   const roomName = sp.get("name") || undefined;
   const maxPlayers = Number(sp.get("max")) || undefined;
@@ -44,6 +48,7 @@ export const GameTable = () => {
       roomId={roomId}
       roomName={roomName}
       maxPlayers={maxPlayers}
+      asSpectator={asSpectator}
     />
   );
 };

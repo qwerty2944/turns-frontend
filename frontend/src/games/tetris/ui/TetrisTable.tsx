@@ -28,6 +28,7 @@ type Props = {
   roomId?: string;
   roomName?: string;
   maxPlayers?: number;
+  asSpectator?: boolean;
 };
 
 const DAS_MS = 150;
@@ -36,6 +37,7 @@ const ARR_MS = 33;
 export const TetrisTable = (props: Props) => {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const asSpectator = !!props.asSpectator;
 
   const { room, status } = useGameRoom({
     roomName: "tetris",
@@ -43,6 +45,7 @@ export const TetrisTable = (props: Props) => {
     roomId: props.roomId,
     displayName: props.roomName,
     maxPlayers: props.maxPlayers,
+    asSpectator,
   });
 
   const [stateSnap, setStateSnap] = useState<TetrisStateSnap | null>(null);
@@ -129,12 +132,14 @@ export const TetrisTable = (props: Props) => {
 
   // ───────── input ───────── //
   const sendAction = (action: InputAction) => {
+    if (asSpectator) return;
     room?.send("input", { action });
   };
 
   // Keyboard handler with DAS/ARR for horizontal + soft-drop hold.
   useEffect(() => {
     if (!room) return;
+    if (asSpectator) return;
     if (stateSnap?.phase !== "playing") return;
     const repeats = new Map<string, { das: any; arr: any }>();
 
@@ -257,6 +262,19 @@ export const TetrisTable = (props: Props) => {
         </h1>
         <div className="row" style={{ gap: 8, flexShrink: 0 }}>
           <span className="muted hide-sm">{user?.nickname}</span>
+          {asSpectator && (
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: 11,
+                padding: "0.2rem 0.5rem",
+                border: "1px solid var(--accent)",
+                color: "var(--accent)",
+              }}
+            >
+              👁 관전 중
+            </span>
+          )}
           <button onClick={leave}>나가기</button>
         </div>
       </div>
@@ -275,9 +293,10 @@ export const TetrisTable = (props: Props) => {
             <LobbyView
               state={stateSnap}
               meSid={meSid!}
-              isHost={isHost}
+              isHost={isHost && !asSpectator}
               onReady={() => room?.send("toggleReady")}
               onStart={() => room?.send("startGame")}
+              spectating={asSpectator}
             />
           </div>
           <div className="play-side">
@@ -549,12 +568,14 @@ const LobbyView = ({
   isHost,
   onReady,
   onStart,
+  spectating = false,
 }: {
   state: TetrisStateSnap;
   meSid: string;
   isHost: boolean;
   onReady: () => void;
   onStart: () => void;
+  spectating?: boolean;
 }) => {
   const players = Object.values(state.players);
   const ready = players.every(
@@ -604,9 +625,12 @@ const LobbyView = ({
         ))}
       </div>
       <div className="row" style={{ justifyContent: "flex-end", gap: 8 }}>
-        {!isHost && <button onClick={onReady}>준비 토글</button>}
-        {isHost && (
-          <button onClick={onStart} disabled={players.length < 2 || !ready}>
+        {spectating && (
+          <span className="muted" style={{ fontSize: 13 }}>👁 관전 중</span>
+        )}
+        {!spectating && !isHost && <button onClick={onReady}>준비 토글</button>}
+        {!spectating && isHost && (
+          <button onClick={onStart} disabled={players.length < 1 || !ready}>
             시작
           </button>
         )}

@@ -5,7 +5,7 @@ export const tetrisManifest: GameManifest = {
   id: "tetris",
   roomName: "tetris",
   displayName: "테트리스",
-  minPlayers: 2,
+  minPlayers: 1,
   maxPlayers: 6,
   RoomClass: TetrisRoom,
   filterBy: ["roomName"],

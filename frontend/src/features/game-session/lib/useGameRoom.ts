@@ -11,6 +11,7 @@ type Options = {
   roomId?: string;
   displayName?: string;
   maxPlayers?: number;
+  asSpectator?: boolean;
 };
 
 export type GameRoomStatus =
@@ -41,6 +42,7 @@ export const useGameRoom = (options: Options) => {
           token,
           roomName: o.displayName,
           maxPlayers: o.maxPlayers,
+          ...(o.asSpectator ? { spectator: true } : {}),
         };
         if (o.mode === "create") {
           r = await client.create(o.roomName, joinOpts);

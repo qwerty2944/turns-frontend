@@ -28,6 +28,7 @@ import {
   shuffle7Bag,
 } from "./rules.js";
 import { verifyAuthRequest } from "../../shared/auth/middleware.js";
+import { Spectator, isSpectator } from "../../shared/colyseus/spectator.js";
 
 type JoinOptions = {
   token?: string;
@@ -71,12 +72,14 @@ export class TetrisRoom extends Room {
     this.setMetadata({ roomName: this.state.roomName });
 
     this.onMessage("toggleReady", (client) => {
+      if (isSpectator(client)) return;
       const p = this.state.players.get(client.sessionId);
       if (!p || this.state.phase !== "lobby") return;
       p.ready = !p.ready;
     });
 
     this.onMessage("startGame", (client) => {
+      if (isSpectator(client)) return;
       if (client.sessionId !== this.state.hostSessionId) return;
       if (this.state.phase !== "lobby") return;
       if (this.state.players.size < MIN_PLAYERS) return;
@@ -88,16 +91,19 @@ export class TetrisRoom extends Room {
     });
 
     this.onMessage("input", (client, payload: { action: InputAction }) => {
+      if (isSpectator(client)) return;
       this.handleInput(client, payload?.action);
     });
 
     this.onMessage("nextRound", (client) => {
+      if (isSpectator(client)) return;
       if (client.sessionId !== this.state.hostSessionId) return;
       if (this.state.phase !== "roundEnd") return;
       this.startRound();
     });
 
     this.onMessage("chat", (client, msg: string) => {
+      if (isSpectator(client)) return;
       const p = this.state.players.get(client.sessionId);
       if (!p || typeof msg !== "string") return;
       this.pushLog(`💬 ${p.nickname}: ${msg.slice(0, 120)}`, {
@@ -121,7 +127,21 @@ export class TetrisRoom extends Room {
     return payload;
   }
 
-  onJoin(client: Client, _options: JoinOptions, auth: any) {
+  onJoin(client: Client, options: JoinOptions & { spectator?: boolean }, auth: any) {
+    if (options?.spectator) {
+      client.userData = { spectator: true };
+      const s = new Spectator();
+      s.sessionId = client.sessionId;
+      s.userId = auth.userId;
+      s.nickname = auth.nickname;
+      this.state.spectators.set(client.sessionId, s);
+      this.pushLog(`👁 ${auth.nickname} 관전 시작`, {
+        kind: "system",
+        actor: auth.nickname,
+      });
+      return;
+    }
+
     if (this.state.phase !== "lobby") {
       throw new Error("게임이 이미 시작됨");
     }
@@ -143,6 +163,17 @@ export class TetrisRoom extends Room {
   }
 
   async onLeave(client: Client, code?: number) {
+    if (this.state.spectators.has(client.sessionId)) {
+      const s = this.state.spectators.get(client.sessionId);
+      this.state.spectators.delete(client.sessionId);
+      if (s) {
+        this.pushLog(`👁 ${s.nickname} 관전 종료`, {
+          kind: "system",
+          actor: s.nickname,
+        });
+      }
+      return;
+    }
     const p = this.state.players.get(client.sessionId);
     if (!p) return;
     p.connected = false;

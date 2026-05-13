@@ -1,5 +1,6 @@
 import "../../shared/polyfill.js";
 import { Schema, ArraySchema, MapSchema, type } from "@colyseus/schema";
+import { Spectator } from "../../shared/colyseus/spectator.js";
 
 export const BOARD_W = 10;
 export const BOARD_H = 20;
@@ -60,4 +61,6 @@ export class TetrisState extends Schema {
   @type("string") gameWinnerId: string = "";
 
   @type([LogEntry]) log = new ArraySchema<LogEntry>();
+
+  @type({ map: Spectator }) spectators = new MapSchema<Spectator>();
 }

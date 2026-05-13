@@ -84,22 +84,11 @@ export const CreateRoomForm = ({ games }: Props) => {
             ))}
           </select>
         </label>
-      </div>
-      <div
-        className="row"
-        style={{
-          flexWrap: "wrap",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: 8,
-        }}
-      >
         <label
           className="row muted"
           style={{
             gap: 6,
-            flex: "1 1 auto",
-            minWidth: 0,
+            flex: "0 0 auto",
             whiteSpace: "nowrap",
             cursor: "pointer",
           }}
@@ -112,11 +101,12 @@ export const CreateRoomForm = ({ games }: Props) => {
           />
           닉네임 가리기
         </label>
-        <button
-          onClick={onCreate}
-          disabled={!game?.available}
-          style={{ flex: "0 0 auto" }}
-        >
+      </div>
+      <div
+        className="row"
+        style={{ justifyContent: "flex-end" }}
+      >
+        <button onClick={onCreate} disabled={!game?.available}>
           만들기
         </button>
       </div>

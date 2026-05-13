@@ -1,7 +1,30 @@
 /* ─── Fonts ──────────────────────────────────────────────────────── */
 @import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Cormorant+Garamond:wght@400;600&family=Noto+Serif+KR:wght@400;600&display=swap");
-/* Galmuri11 — Korean+English pixel font (quiple/galmuri on npm via jsDelivr) */
-@import url("https://cdn.jsdelivr.net/npm/galmuri/dist/Galmuri11.css");
+
+/* Galmuri11 — Korean+English pixel font by Quiple (https://github.com/quiple/galmuri).
+   Self-hosted from /public/fonts so we don't depend on an upstream CDN CSS file
+   that previously 404'd. */
+@font-face {
+  font-family: "Galmuri11";
+  src: url("/fonts/Galmuri11.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Galmuri11";
+  src: url("/fonts/Galmuri11-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Galmuri9";
+  src: url("/fonts/Galmuri9.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* ─── Theme tokens ────────────────────────────────────────────────── */
 :root,

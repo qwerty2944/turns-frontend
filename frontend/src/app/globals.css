@@ -1,0 +1,96 @@
+:root {
+  --bg: #0d0a1f;
+  --bg-2: #1a1334;
+  --panel: rgba(28, 19, 60, 0.78);
+  --gold: #d9b66c;
+  --gold-soft: #f1d999;
+  --text: #efe6c6;
+  --muted: #a496c4;
+  --danger: #e06363;
+  --accent: #7a3fff;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background:
+    radial-gradient(1200px 800px at 50% -10%, #2c1f5e 0%, transparent 70%),
+    linear-gradient(180deg, var(--bg) 0%, var(--bg-2) 100%);
+  color: var(--text);
+  font-family: "Cormorant Garamond", "Noto Serif KR", Georgia, serif;
+  min-height: 100vh;
+}
+
+a { color: var(--gold-soft); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+button {
+  font: inherit;
+  border: 1px solid var(--gold);
+  background: linear-gradient(180deg, #3b2a72 0%, #21194a 100%);
+  color: var(--gold-soft);
+  padding: 0.55rem 1.2rem;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: transform 0.08s ease, box-shadow 0.15s ease;
+}
+button:hover:not(:disabled) {
+  box-shadow: 0 0 0 1px var(--gold-soft), 0 0 18px rgba(217, 182, 108, 0.35);
+}
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+input {
+  font: inherit;
+  background: rgba(13, 10, 31, 0.6);
+  border: 1px solid rgba(217, 182, 108, 0.4);
+  color: var(--text);
+  padding: 0.55rem 0.75rem;
+  border-radius: 6px;
+  width: 100%;
+}
+input:focus { outline: none; border-color: var(--gold); }
+
+.panel {
+  background: var(--panel);
+  border: 1px solid rgba(217, 182, 108, 0.35);
+  border-radius: 12px;
+  padding: 1.5rem;
+  backdrop-filter: blur(6px);
+}
+
+.title {
+  font-family: "Cormorant Garamond", "Noto Serif KR", serif;
+  letter-spacing: 0.08em;
+  color: var(--gold-soft);
+  text-shadow: 0 0 18px rgba(217, 182, 108, 0.35);
+}
+
+.muted { color: var(--muted); }
+
+.error {
+  color: var(--danger);
+  background: rgba(224, 99, 99, 0.08);
+  border: 1px solid rgba(224, 99, 99, 0.4);
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  margin-top: 0.6rem;
+}
+
+.row { display: flex; gap: 0.75rem; align-items: center; }
+.col { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.container-narrow {
+  max-width: 460px;
+  margin: 5rem auto;
+  padding: 0 1rem;
+}
+
+.container-wide {
+  max-width: 1100px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+}

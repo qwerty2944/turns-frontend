@@ -21,4 +21,17 @@ export const authApi = {
 
   me: () =>
     apiClient.get<{ user: User }>("/auth/me").then((r) => r.data.user),
+
+  updateNickname: (nickname: string) =>
+    apiClient
+      .patch<AuthResponse>("/auth/me/nickname", { nickname })
+      .then((r) => r.data),
+
+  updatePassword: (currentPassword: string, newPassword: string) =>
+    apiClient
+      .patch<{ ok: true }>("/auth/me/password", {
+        currentPassword,
+        newPassword,
+      })
+      .then((r) => r.data),
 };

@@ -430,6 +430,45 @@ input:focus, select:focus, textarea:focus {
   .play-side { grid-template-rows: auto auto auto; max-height: 45dvh; }
 }
 
+/* ─── Multitask game grid ────────────────────────────────────────── */
+.multitask-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+  padding: 8px;
+  min-height: 0;
+  overflow-y: auto;
+  align-content: start;
+}
+.multitask-solo {
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+  gap: 8px;
+  padding: 4px;
+  min-height: 0;
+  overflow: hidden;
+}
+.multitask-solo > :first-child {
+  min-height: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.multitask-others-tiny {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 4px;
+  padding: 4px;
+  max-height: 18dvh;
+  overflow-y: auto;
+}
+.multitask-tiny-card {
+  padding: 4px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--panel);
+}
+
 /* ─── Card hover tooltip ─────────────────────────────────────────── */
 .card-host { position: relative; display: inline-block; }
 .card-tooltip {
@@ -660,3 +699,4 @@ input:focus, select:focus, textarea:focus {
   padding-top: 12px;
   border-top: 1px solid var(--panel-border);
 }
+

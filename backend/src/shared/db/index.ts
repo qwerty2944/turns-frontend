@@ -1,22 +1,16 @@
+import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { env } from "../config/env.js";
+import * as schema from "./schema.js";
 
-export const sql = postgres(env.databaseUrl, {
-  // Neon and most managed PGs require SSL — auto-detect via URL hint.
-  ssl: env.databaseUrl.includes("sslmode=require") ? "require" : "prefer",
+// `prepare: false` is recommended whenever you go through Supabase poolers.
+const client = postgres(env.databaseUrl, {
+  ssl: "require",
   max: 10,
   idle_timeout: 20,
   connect_timeout: 10,
+  prepare: false,
 });
 
-export const initSchema = async () => {
-  await sql`
-    CREATE TABLE IF NOT EXISTS users (
-      id BIGSERIAL PRIMARY KEY,
-      email TEXT UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
-      nickname TEXT NOT NULL,
-      created_at BIGINT NOT NULL
-    )
-  `;
-};
+export const db = drizzle(client, { schema });
+export { schema };

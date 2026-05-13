@@ -1,28 +1,22 @@
-import { sql } from "../../shared/db/index.js";
+import { eq } from "drizzle-orm";
+import { db } from "../../shared/db/index.js";
+import { users, type UserRow } from "../../shared/db/schema.js";
 
-export type UserRow = {
-  id: number;
-  email: string;
-  password_hash: string;
-  nickname: string;
-  created_at: number;
-};
+export type { UserRow };
 
 export const userRepo = {
   async findByEmail(email: string): Promise<UserRow | undefined> {
-    const rows = await sql<UserRow[]>`
-      SELECT id, email, password_hash, nickname, created_at
-      FROM users WHERE email = ${email} LIMIT 1
-    `;
-    return rows[0];
+    const [row] = await db
+      .select()
+      .from(users)
+      .where(eq(users.email, email.toLowerCase()))
+      .limit(1);
+    return row;
   },
 
   async findById(id: number): Promise<UserRow | undefined> {
-    const rows = await sql<UserRow[]>`
-      SELECT id, email, password_hash, nickname, created_at
-      FROM users WHERE id = ${id} LIMIT 1
-    `;
-    return rows[0];
+    const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    return row;
   },
 
   async create(
@@ -30,11 +24,28 @@ export const userRepo = {
     passwordHash: string,
     nickname: string,
   ): Promise<UserRow> {
-    const rows = await sql<UserRow[]>`
-      INSERT INTO users (email, password_hash, nickname, created_at)
-      VALUES (${email}, ${passwordHash}, ${nickname}, ${Date.now()})
-      RETURNING id, email, password_hash, nickname, created_at
-    `;
-    return rows[0];
+    const [row] = await db
+      .insert(users)
+      .values({
+        email: email.toLowerCase(),
+        passwordHash,
+        nickname,
+        createdAt: Date.now(),
+      })
+      .returning();
+    return row;
+  },
+
+  async updateNickname(id: number, nickname: string): Promise<UserRow> {
+    const [row] = await db
+      .update(users)
+      .set({ nickname })
+      .where(eq(users.id, id))
+      .returning();
+    return row;
+  },
+
+  async updatePassword(id: number, passwordHash: string): Promise<void> {
+    await db.update(users).set({ passwordHash }).where(eq(users.id, id));
   },
 };

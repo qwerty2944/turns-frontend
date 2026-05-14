@@ -141,8 +141,13 @@ export const PlayerBoardView = (props: Props) => {
           WebkitUserSelect: "none",
         }
       : {
+          // Cap width so a solo card on PC doesn't stretch to the full grid
+          // cell — at width=1fr the 220:420 aspect would make height = ~1.9×
+          // width, pushing tap and dodge below the viewport fold.
           width: "100%",
+          maxWidth: 240,
           aspectRatio: `${aspect}`,
+          margin: "0 auto",
           borderRadius: 8,
           overflow: "hidden",
           background: "var(--panel)",

@@ -743,8 +743,10 @@ input:focus, select:focus, textarea:focus {
 .tetris-main {
   display: grid;
   grid-template-columns: 200px minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   gap: 12px;
   min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 .tetris-hud-left {

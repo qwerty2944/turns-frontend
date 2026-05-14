@@ -230,7 +230,7 @@ export const MultitaskTable = (props: Props) => {
           className="title"
           style={{
             margin: 0,
-            fontSize: "clamp(1rem, 4vw, 1.4rem)",
+            fontSize: "clamp(0.85rem, 3vw, 1.1rem)",
             minWidth: 0,
             overflow: "hidden",
             textOverflow: "ellipsis",

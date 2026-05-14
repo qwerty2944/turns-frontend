@@ -7,15 +7,15 @@ type Props = {
   board: PlayerBoardSnap;
 };
 
-// Sidebar showing Next 5, Hold, Score, Lines, Level, Incoming garbage gauge.
+// Sidebar showing Next 4, Hold, Score, Lines, Level, Incoming garbage gauge.
 export const Hud = ({ board }: Props) => {
-  const next = board.nextQueue.slice(0, 5);
+  const next = board.nextQueue.slice(0, 4);
   return (
     <div
       className="col"
       style={{
-        gap: 10,
-        padding: 10,
+        gap: 6,
+        padding: 8,
         background: "var(--panel, rgba(0,0,0,0.35))",
         border: "1px solid var(--panel-border, rgba(255,255,255,0.12))",
         borderRadius: 8,
@@ -79,10 +79,10 @@ const Section = ({
   title: string;
   children: React.ReactNode;
 }) => (
-  <div className="col" style={{ gap: 4 }}>
+  <div className="col" style={{ gap: 3 }}>
     <div
       className="muted"
-      style={{ fontSize: 10, letterSpacing: "0.08em", textTransform: "uppercase" }}
+      style={{ fontSize: 9, letterSpacing: "0.08em", textTransform: "uppercase" }}
     >
       {title}
     </div>
@@ -100,7 +100,7 @@ const MiniPiece = ({
   small?: boolean;
   dimmed?: boolean;
 }) => {
-  const cell = small ? 8 : 12;
+  const cell = small ? 6 : 10;
   if (!type) {
     return (
       <div

@@ -36,3 +36,4 @@ frontend/tsconfig.tsbuildinfo
 
 # Misc
 *.tsbuildinfo
+app/assets/web.zip

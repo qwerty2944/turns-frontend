@@ -1,9 +1,11 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { getGame } from "@/entities/game/model/registry";
+import { authApi } from "@/entities/user/api/auth";
 import { useAuthStore } from "@/entities/user/model/authStore";
+import { storage } from "@/shared/lib/storage";
 import { FullPageSpinner } from "@/shared/ui/Spinner";
 
 export const GameTable = () => {
@@ -11,12 +13,44 @@ export const GameTable = () => {
   const sp = useSearchParams();
   const hydrated = useAuthStore((s) => s.hydrated);
   const token = useAuthStore((s) => s.token);
+  const hydrate = useAuthStore((s) => s.hydrate);
+  const setSession = useAuthStore((s) => s.setSession);
+
+  // Mobile-app bridge: the Flutter shell opens this page inside a WebView
+  // with the JWT as ?tk=… (target is the app's own 127.0.0.1 server, so the
+  // URL never leaves the device). Seed localStorage + fetch the user, then
+  // proceed exactly like a normal web session.
+  const bridgeToken = sp.get("tk");
+  const [bridging, setBridging] = useState(!!bridgeToken);
+  useEffect(() => {
+    if (!bridgeToken) return;
+    let active = true;
+    storage.setToken(bridgeToken);
+    hydrate();
+    authApi
+      .me()
+      .then((user) => {
+        if (!active) return;
+        setSession(bridgeToken, user);
+        setBridging(false);
+      })
+      .catch(() => {
+        if (!active) return;
+        storage.clear();
+        hydrate();
+        setBridging(false);
+      });
+    return () => {
+      active = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bridgeToken]);
 
   useEffect(() => {
-    if (hydrated && !token) router.replace("/login");
-  }, [hydrated, token, router]);
+    if (hydrated && !token && !bridging) router.replace("/login");
+  }, [hydrated, token, bridging, router]);
 
-  if (!hydrated) {
+  if (!hydrated || bridging) {
     return <FullPageSpinner label="불러오는 중…" />;
   }
 

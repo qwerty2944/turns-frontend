@@ -1,10 +1,19 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
   title: "Turns — 보드게임 매칭",
   description: "Love Letter 온라인 매칭 플랫폼",
+};
+
+// Mobile WebView: no pinch zoom, respect notches. Harmless on desktop web.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 // Run before React mounts so we never flash the wrong theme.

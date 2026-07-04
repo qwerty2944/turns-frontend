@@ -85,9 +85,13 @@ export const Board = forwardRef<BoardHandle, Props>(function Board(
     const { cell, w, h } = sizeRef.current;
     if (!cell) return;
 
-    // Background — subtle grid on dark panel.
+    // Background — vertical gradient + subtle grid + vignette.
     ctx.clearRect(0, 0, w, h);
-    ctx.fillStyle = "rgba(8,5,22,0.9)";
+    const bgGrad = ctx.createLinearGradient(0, 0, 0, h);
+    bgGrad.addColorStop(0, "rgba(10,6,28,0.95)");
+    bgGrad.addColorStop(0.6, "rgba(8,5,22,0.92)");
+    bgGrad.addColorStop(1, "rgba(16,10,38,0.95)");
+    ctx.fillStyle = bgGrad;
     ctx.fillRect(0, 0, w, h);
 
     ctx.strokeStyle = "rgba(255,255,255,0.05)";
@@ -103,6 +107,25 @@ export const Board = forwardRef<BoardHandle, Props>(function Board(
       ctx.moveTo(0, y * cell);
       ctx.lineTo(w, y * cell);
       ctx.stroke();
+    }
+
+    // Danger tint: red gradient at the top when the stack climbs high.
+    let stackTop = BOARD_H;
+    outer: for (let y = 0; y < BOARD_H; y++) {
+      for (let x = 0; x < BOARD_W; x++) {
+        if (board.cells[y * BOARD_W + x]) {
+          stackTop = y;
+          break outer;
+        }
+      }
+    }
+    if (stackTop <= 6) {
+      const danger = Math.min(1, (7 - stackTop) / 6);
+      const dGrad = ctx.createLinearGradient(0, 0, 0, cell * 5);
+      dGrad.addColorStop(0, `rgba(239,68,68,${0.28 * danger})`);
+      dGrad.addColorStop(1, "rgba(239,68,68,0)");
+      ctx.fillStyle = dGrad;
+      ctx.fillRect(0, 0, w, cell * 5);
     }
 
     // Stack cells.
@@ -136,12 +159,17 @@ export const Board = forwardRef<BoardHandle, Props>(function Board(
       }
     }
 
-    // Active piece.
+    // Active piece — with a soft neon glow so it pops against the stack.
     if (cur?.type) {
+      const color = PIECE_COLOR[cur.type] ?? "#fff";
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = Math.max(6, cell * 0.55);
       for (const [cx, cy] of occupiedCells(cur.type, cur.rot, cur.x, cur.y)) {
         if (cy < 0 || cy >= BOARD_H || cx < 0 || cx >= BOARD_W) continue;
-        drawCell(ctx, cx, cy, cell, PIECE_COLOR[cur.type] ?? "#fff");
+        drawCell(ctx, cx, cy, cell, color);
       }
+      ctx.restore();
     }
   };
 

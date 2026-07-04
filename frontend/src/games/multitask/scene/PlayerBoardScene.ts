@@ -229,24 +229,37 @@ export class PlayerBoardScene extends Phaser.Scene {
     const y = region.top;
     const w = BOARD_W - 20;
     const h = region.height;
+    const inZone = v.holdPos >= v.holdZoneStart && v.holdPos <= v.holdZoneEnd;
 
-    // Track
+    // Track with inner shading + zone-glow border when the indicator is in.
     this.g.fillStyle(this.theme.panel, 1).fillRect(x, y, w, h);
-    this.g.lineStyle(1, this.theme.muted, 0.6).strokeRect(x, y, w, h);
+    this.g.fillStyle(0x000000, 0.25).fillRect(x, y + h * 0.55, w, h * 0.45);
+    this.g
+      .lineStyle(inZone ? 2 : 1, inZone ? this.theme.gold : this.theme.muted, inZone ? 0.9 : 0.6)
+      .strokeRect(x, y, w, h);
 
-    // Target zone
+    // Target zone — gold band with a soft pulse while the indicator is inside.
     const zs = x + w * Math.max(0, Math.min(1, v.holdZoneStart));
     const ze = x + w * Math.max(0, Math.min(1, v.holdZoneEnd));
     const zw = Math.max(2, ze - zs);
-    this.g.fillStyle(this.theme.gold, 0.45).fillRect(zs, y + 8, zw, h - 16);
+    const pulse = inZone ? 0.5 + 0.2 * Math.sin(Date.now() / 120) : 0.4;
+    this.g.fillStyle(this.theme.gold, pulse).fillRect(zs, y + 8, zw, h - 16);
     this.g.lineStyle(2, this.theme.gold, 1).strokeRect(zs, y + 8, zw, h - 16);
 
-    // Indicator
+    // Indicator — taller with a diamond head; sparks while scoring.
     const ix = x + w * Math.max(0, Math.min(1, v.holdPos));
-    const inZone = v.holdPos >= v.holdZoneStart && v.holdPos <= v.holdZoneEnd;
-    this.g
-      .fillStyle(inZone ? this.theme.gold : this.theme.accent, 1)
-      .fillRect(ix - 2, y - 4, 4, h + 8);
+    const col = inZone ? this.theme.gold : this.theme.accent;
+    this.g.fillStyle(col, 1).fillRect(ix - 2, y - 5, 4, h + 10);
+    this.g.fillStyle(col, 1).fillTriangle(ix, y - 11, ix - 5, y - 4, ix + 5, y - 4);
+    if (inZone) {
+      // tiny rising sparks off the indicator head
+      const t = Date.now();
+      for (let i = 0; i < 3; i++) {
+        const sy = y - 12 - ((t / 60 + i * 12) % 22);
+        const sx = ix + Math.sin((t + i * 400) / 130) * 5;
+        this.g.fillStyle(0xffffff, 0.7 - i * 0.2).fillRect(sx, sy, 2, 2);
+      }
+    }
   }
 
   private drawTapGrid(v: PlayerView, nowMs: number, region: Region) {
@@ -274,7 +287,7 @@ export class PlayerBoardScene extends Phaser.Scene {
       }
     }
 
-    // Active targets
+    // Active targets — bullseye with a shrinking timer ring and urgency pulse.
     for (const t of v.tapTargets) {
       const c = t.cell % 3;
       const r = Math.floor(t.cell / 3);
@@ -283,11 +296,19 @@ export class PlayerBoardScene extends Phaser.Scene {
       const total = Math.max(1, t.expiresAt - t.spawnedAt);
       const remaining = Math.max(0, t.expiresAt - nowMs);
       const ratio = remaining / total;
-      const radius = (cellSize / 2 - 4) * (0.35 + 0.65 * ratio);
+      const maxR = cellSize / 2 - 4;
+      const radius = maxR * (0.35 + 0.65 * ratio);
+      const urgent = ratio < 0.33;
+      const wobble = urgent ? 1 + 0.08 * Math.sin(nowMs / 55) : 1;
       const color =
         ratio < 0.33 ? this.theme.danger : ratio < 0.66 ? this.theme.gold : this.theme.accent;
-      this.g.fillStyle(color, 0.9).fillCircle(cx, cy, radius);
-      this.g.lineStyle(1, 0xffffff, 0.6).strokeCircle(cx, cy, radius);
+
+      // outer timer ring (full lifetime footprint)
+      this.g.lineStyle(2, color, 0.35).strokeCircle(cx, cy, maxR);
+      // body + bullseye
+      this.g.fillStyle(color, 0.92).fillCircle(cx, cy, radius * wobble);
+      this.g.fillStyle(0xffffff, 0.85).fillCircle(cx, cy, Math.max(2, radius * 0.3));
+      this.g.lineStyle(1.5, 0xffffff, 0.7).strokeCircle(cx, cy, radius * wobble);
     }
   }
 
@@ -310,6 +331,7 @@ export class PlayerBoardScene extends Phaser.Scene {
     // Falling blocks — interpolate locally using spawnedAt+speed when we have
     // a clock estimate, so motion stays smooth between 20Hz server ticks.
     const now = v.serverNowEst ?? Date.now();
+    const charCyRatio = 0.85;
     for (const b of v.dodgeBlocks) {
       const interp = b.speed > 0
         ? Math.max(0, Math.min(1.1, (now - b.spawnedAt) * b.speed))
@@ -319,24 +341,38 @@ export class PlayerBoardScene extends Phaser.Scene {
       const cy = y0 + h * Math.max(0, Math.min(1, yRatio));
       const bw = colW - 14;
       const bh = 16;
+      // motion trail
+      this.g.fillStyle(this.theme.danger, 0.22).fillRect(cx - bw / 2 + 3, cy - bh / 2 - 12, bw - 6, 9);
+      this.g.fillStyle(this.theme.danger, 0.1).fillRect(cx - bw / 2 + 6, cy - bh / 2 - 22, bw - 12, 8);
+      // body with bevel
       this.g.fillStyle(this.theme.danger, 0.95).fillRect(cx - bw / 2, cy - bh / 2, bw, bh);
-      this.g
-        .lineStyle(1, 0xffffff, 0.5)
-        .strokeRect(cx - bw / 2, cy - bh / 2, bw, bh);
+      this.g.fillStyle(0xffffff, 0.28).fillRect(cx - bw / 2, cy - bh / 2, bw, 3);
+      this.g.fillStyle(0x000000, 0.3).fillRect(cx - bw / 2, cy + bh / 2 - 3, bw, 3);
+      this.g.lineStyle(1, 0xffffff, 0.5).strokeRect(cx - bw / 2, cy - bh / 2, bw, bh);
+      // proximity warning: block bearing down on the player's column
+      if (b.col === v.dodgeCol && yRatio > charCyRatio - 0.28 && yRatio < charCyRatio) {
+        const blink = 0.35 + 0.35 * Math.sin(now / 60);
+        this.g.lineStyle(2, 0xffffff, blink).strokeRect(cx - bw / 2 - 3, cy - bh / 2 - 3, bw + 6, bh + 6);
+      }
     }
 
-    // Character (player)
+    // Character (player) — bobbing little guy with face + shadow.
     const charCx = x0 + v.dodgeCol * colW + colW / 2;
-    const charCy = y0 + h * 0.85;
+    const bob = Math.sin(now / 180) * 1.5;
+    const charCy = y0 + h * charCyRatio + bob;
     const cw = colW - 22;
     const ch = 18;
+    // shadow
+    this.g.fillStyle(0x000000, 0.35).fillEllipse(charCx, y0 + h * charCyRatio + ch / 2 + 3, cw * 0.8, 5);
+    // body with bevel
     this.g.fillStyle(this.theme.accent, 1).fillRect(charCx - cw / 2, charCy - ch / 2, cw, ch);
-    this.g
-      .lineStyle(1.5, 0xffffff, 0.8)
-      .strokeRect(charCx - cw / 2, charCy - ch / 2, cw, ch);
-    // Eye
-    this.g.fillStyle(0xffffff, 1).fillRect(charCx - 3, charCy - 3, 2, 2);
-    this.g.fillStyle(0xffffff, 1).fillRect(charCx + 1, charCy - 3, 2, 2);
+    this.g.fillStyle(0xffffff, 0.3).fillRect(charCx - cw / 2, charCy - ch / 2, cw, 3);
+    this.g.fillStyle(0x000000, 0.25).fillRect(charCx - cw / 2, charCy + ch / 2 - 3, cw, 3);
+    this.g.lineStyle(1.5, 0xffffff, 0.8).strokeRect(charCx - cw / 2, charCy - ch / 2, cw, ch);
+    // face: eyes + tiny mouth
+    this.g.fillStyle(0xffffff, 1).fillRect(charCx - 4, charCy - 4, 2.5, 2.5);
+    this.g.fillStyle(0xffffff, 1).fillRect(charCx + 2, charCy - 4, 2.5, 2.5);
+    this.g.fillStyle(0xffffff, 0.85).fillRect(charCx - 2, charCy + 2, 4, 1.5);
   }
 
   // ── Input ────────────────────────────────────────────────────────

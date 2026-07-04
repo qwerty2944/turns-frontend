@@ -184,6 +184,8 @@ class _GameWebViewPageState extends ConsumerState<GameWebViewPage> {
                     controller.addJavaScriptHandler(
                       handlerName: 'turnsState',
                       callback: (args) {
+                        debugPrint('[bridge] turnsState received '
+                            '(${args.isNotEmpty ? args.first.runtimeType : 'empty'})');
                         if (!mounted || args.isEmpty) return;
                         final raw = args.first;
                         if (raw is Map) {
@@ -196,14 +198,29 @@ class _GameWebViewPageState extends ConsumerState<GameWebViewPage> {
                     );
                   },
                   onLoadStop: (controller, url) {
+                    debugPrint('[webview] loadStop $url');
                     if (mounted) setState(() => _pageLoaded = true);
+                  },
+                  onConsoleMessage: (controller, msg) {
+                    debugPrint('[webview:${msg.messageLevel}] ${msg.message}');
+                  },
+                  onReceivedError: (controller, request, error) {
+                    debugPrint('[webview] error ${request.url}: ${error.description}');
                   },
                 ),
 
               // ── 네이티브 대기실 (웹뷰는 뒤에서 연결 유지) ──
               if (_showNativeLobby)
                 _lobby == null
-                    ? _Splash(meta: meta, error: _error, onLeave: () => context.pop())
+                    ? _Splash(
+                        meta: meta,
+                        error: _error,
+                        stage: !_ready
+                            ? '게임 준비 중 (1/3)'
+                            : !_pageLoaded
+                                ? '화면 불러오는 중 (2/3)'
+                                : '서버 접속 중 (3/3)',
+                        onLeave: () => context.pop())
                     : YeouidoLobbyView(
                         snap: _lobby!,
                         onCommand: _cmd,
@@ -211,7 +228,11 @@ class _GameWebViewPageState extends ConsumerState<GameWebViewPage> {
                       ),
 
               if (!_showNativeLobby && !_pageLoaded)
-                _Splash(meta: meta, error: _error, onLeave: () => context.pop()),
+                _Splash(
+                    meta: meta,
+                    error: _error,
+                    stage: _ready ? '화면 불러오는 중' : '게임 준비 중',
+                    onLeave: () => context.pop()),
 
               // 상단 우측 나가기 버튼 — 인게임(웹뷰 노출) 상태에서만
               if (!_showNativeLobby)
@@ -257,11 +278,19 @@ const _loadingQuips = <String>[
 ];
 
 class _Splash extends StatefulWidget {
-  const _Splash({required this.meta, required this.error, required this.onLeave});
+  const _Splash({
+    required this.meta,
+    required this.error,
+    required this.onLeave,
+    this.stage,
+  });
 
   final GameMeta? meta;
   final String? error;
   final VoidCallback onLeave;
+
+  /// 진행 단계 표시 — 실기기에서 어디서 막히는지 눈으로 확인 가능.
+  final String? stage;
 
   @override
   State<_Splash> createState() => _SplashState();
@@ -314,7 +343,14 @@ class _SplashState extends State<_Splash> {
             const SizedBox(height: 20),
             if (error == null) ...[
               const CircularProgressIndicator(color: AppColors.accent),
-              const SizedBox(height: 18),
+              if (widget.stage != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  widget.stage!,
+                  style: const TextStyle(color: AppColors.gold, fontSize: 11),
+                ),
+              ],
+              const SizedBox(height: 14),
               AnimatedSwitcher(
                 duration: const Duration(milliseconds: 300),
                 child: Text(

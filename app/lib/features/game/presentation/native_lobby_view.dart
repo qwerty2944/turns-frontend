@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../lobby/domain/game_meta.dart';
+import 'chat_panel.dart';
 import 'lobby_bridge.dart';
 
 /// Native pre-game lobby for EVERY game — players/ready/start/chat, plus a
@@ -268,7 +269,7 @@ class _NativeLobbyViewState extends State<NativeLobbyView> {
                         controller: _scroll,
                         itemCount: snap.log.length,
                         itemBuilder: (context, i) =>
-                            _LogLine(entry: snap.log[i], meNickname: me?.nickname ?? ''),
+                            LogLine(entry: snap.log[i], meNickname: me?.nickname ?? ''),
                       ),
               ),
             ),
@@ -443,69 +444,6 @@ class _FactionCard extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-/// One log/chat line with kind-based color coding so 채팅/시스템/결과가
-/// 한눈에 구분된다.
-class _LogLine extends StatelessWidget {
-  const _LogLine({required this.entry, required this.meNickname});
-
-  final LobbyLogEntry entry;
-  final String meNickname;
-
-  @override
-  Widget build(BuildContext context) {
-    // 채팅: "💬 nickname: message" — 닉네임/본문을 분리해 색을 달리 준다.
-    if (entry.isChat) {
-      final body = entry.text.substring(2).trim();
-      final sep = body.indexOf(': ');
-      final nick = sep > 0 ? body.substring(0, sep) : entry.actor;
-      final msg = sep > 0 ? body.substring(sep + 2) : body;
-      final isMe = nick == meNickname;
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 3),
-        child: RichText(
-          text: TextSpan(
-            style: const TextStyle(fontFamily: 'Galmuri11', fontSize: 13, height: 1.5),
-            children: [
-              TextSpan(
-                text: '$nick  ',
-                style: TextStyle(
-                  color: isMe ? AppColors.accent : const Color(0xFF8EC5FF),
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              TextSpan(
-                text: msg,
-                style: const TextStyle(color: AppColors.text),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final (color, italic) = switch (entry.kind) {
-      'system' => (AppColors.muted, true),
-      'turn' => (AppColors.gold, false),
-      'combat' => (const Color(0xFFFF9B9B), false),
-      'result' => (const Color(0xFFF6D36B), false),
-      'play' => (AppColors.text, false),
-      _ => (AppColors.muted, false),
-    };
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
-      child: Text(
-        entry.text,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          height: 1.5,
-          fontStyle: italic ? FontStyle.italic : FontStyle.normal,
         ),
       ),
     );

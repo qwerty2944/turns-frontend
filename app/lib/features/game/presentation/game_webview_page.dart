@@ -12,6 +12,7 @@ import '../../../core/web_bundle/web_bundle_service.dart';
 import '../../auth/presentation/auth_notifier.dart';
 import '../../lobby/domain/game_meta.dart';
 import 'game_route_args.dart';
+import 'chat_panel.dart';
 import 'lobby_bridge.dart';
 import 'native_lobby_view.dart';
 
@@ -45,6 +46,8 @@ class _GameWebViewPageState extends ConsumerState<GameWebViewPage> {
   String _origin = '';
   InAppWebViewController? _controller;
   LobbySnap? _lobby;
+  bool _chatOpen = false;
+  int _seenLogLen = 0;
 
   // 게임 시작 전 로직은 전부 네이티브 — 관전만 웹뷰 직행.
   bool get _wantsNativeLobby => widget.args.mode != 'spectate';
@@ -234,6 +237,39 @@ class _GameWebViewPageState extends ConsumerState<GameWebViewPage> {
                     error: _error,
                     stage: _ready ? '화면 불러오는 중' : '게임 준비 중',
                     onLeave: () => context.pop()),
+
+              // ── 인게임 네이티브 채팅 (웹뷰의 채팅 패널은 앱에서 숨김) ──
+              if (!_showNativeLobby && _lobby != null && !_chatOpen)
+                Positioned(
+                  bottom: 12,
+                  left: 10,
+                  child: Badge(
+                    isLabelVisible: _lobby!.log.length > _seenLogLen,
+                    backgroundColor: AppColors.danger,
+                    child: IconButton.filled(
+                      style: IconButton.styleFrom(
+                        backgroundColor: AppColors.bg.withValues(alpha: 0.8),
+                        foregroundColor: AppColors.gold,
+                        side: const BorderSide(color: AppColors.gold, width: 1.5),
+                      ),
+                      icon: const Icon(Icons.chat_bubble_outline, size: 20),
+                      onPressed: () => setState(() {
+                        _chatOpen = true;
+                        _seenLogLen = _lobby?.log.length ?? 0;
+                      }),
+                    ),
+                  ),
+                ),
+              if (!_showNativeLobby && _chatOpen && _lobby != null)
+                InGameChatPanel(
+                  log: _lobby!.log,
+                  meNickname: _lobby!.me?.nickname ?? '',
+                  onSend: (msg) => _cmd('chat', msg),
+                  onClose: () => setState(() {
+                    _chatOpen = false;
+                    _seenLogLen = _lobby?.log.length ?? 0;
+                  }),
+                ),
 
               // 상단 우측 나가기 버튼 — 인게임(웹뷰 노출) 상태에서만
               if (!_showNativeLobby)

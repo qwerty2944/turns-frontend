@@ -13,6 +13,7 @@ import dynamic from "next/dynamic";
 import type { Room } from "@colyseus/sdk";
 import { useGameRoom } from "@/features/game-session/lib/useGameRoom";
 import { useAuthStore } from "@/entities/user/model/authStore";
+import { isInApp } from "@/shared/lib/appBridge";
 import { useAppLobby } from "@/shared/lib/useAppLobby";
 import { cardArt, cardView, FACTION_META } from "../model/cards";
 import {
@@ -76,6 +77,7 @@ export const YeouidoTable = (props: Props) => {
   const [myHand, setMyHand] = useState<string[]>([]);
   const [chatInput, setChatInput] = useState("");
   const [pops, setPops] = useState<Pop[]>([]);
+  const [hoverCardId, setHoverCardId] = useState<string | null>(null);
   const [drawFlights, setDrawFlights] = useState<
     { id: number; enemy: boolean; from: { x: number; y: number }; to: { x: number; y: number }; go: boolean }[]
   >([]);
@@ -101,6 +103,7 @@ export const YeouidoTable = (props: Props) => {
   const { visual, animating, onFxBatch, onSnap } = useFxQueue({ snapRef, handlersRef });
 
   const meSid = room?.sessionId;
+  const inApp = isInApp();
 
   // ─── fx handler implementations (reassigned every render; queue reads via ref) ───
   const announce = useCallback(
@@ -518,7 +521,10 @@ export const YeouidoTable = (props: Props) => {
       )}
 
       {phase !== "lobby" && snap && bottom && (
-        <div className="play-grid">
+        <div
+          className="play-grid"
+          style={inApp ? { gridTemplateColumns: "minmax(0, 1fr)" } : undefined}
+        >
           <div
             ref={wrapRef}
             className="panel yd-table"
@@ -608,6 +614,36 @@ export const YeouidoTable = (props: Props) => {
             {/* my hand */}
             {!asSpectator && (
               <div className="yd-hand-zone">
+                {/* 카드 설명 프리뷰 — 스크롤 컨테이너에 잘리지 않는 고정 바.
+                    호버(데스크톱) 또는 선택(터치) 시 손패 위에 표시 */}
+                {(() => {
+                  const previewId =
+                    targeting.mode === "handPick"
+                      ? targeting.cardId
+                      : targeting.mode === "idle"
+                        ? hoverCardId
+                        : null;
+                  if (!previewId) return null;
+                  const v = cardView(previewId);
+                  return (
+                    <div
+                      className="yd-action-strip yd-card-preview"
+                      style={
+                        targeting.mode === "handPick"
+                          ? { bottom: "calc(100% + 50px)" }
+                          : undefined
+                      }
+                    >
+                      <span className="yd-preview-name">
+                        ({v.cost}) {v.name}
+                        {v.type === "unit" ? ` · ${v.atk}/${v.hp}` : ""}
+                      </span>
+                      <span className="yd-preview-text">
+                        {v.text || v.flavor}
+                      </span>
+                    </div>
+                  );
+                })()}
                 {targeting.mode === "handPick" && (
                   <div className="yd-action-strip">
                     {targeting.confirm ? (
@@ -649,6 +685,7 @@ export const YeouidoTable = (props: Props) => {
                       playable={canPlayCard(cardId)}
                       selected={targeting.mode === "handPick" && targeting.handIdx === idx}
                       onClick={() => onHandClick(idx)}
+                      onHover={setHoverCardId}
                     />
                   ))}
                   {myHand.length === 0 && <span className="muted">손패 없음</span>}
@@ -687,13 +724,16 @@ export const YeouidoTable = (props: Props) => {
             <CenterStage stage={stage} meSid={meSid} nicknameOf={nicknameOf} />
           </div>
 
-          <SidePanel
-            snap={snap}
-            chatInput={chatInput}
-            onChat={setChatInput}
-            onSend={sendChat}
-            spectating={asSpectator}
-          />
+          {/* 앱에서는 네이티브 채팅/로그가 담당 — 웹뷰 패널 숨김 */}
+          {!inApp && (
+            <SidePanel
+              snap={snap}
+              chatInput={chatInput}
+              onChat={setChatInput}
+              onSend={sendChat}
+              spectating={asSpectator}
+            />
+          )}
         </div>
       )}
 

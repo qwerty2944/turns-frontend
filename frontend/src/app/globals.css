@@ -2272,3 +2272,26 @@ input:focus, select:focus, textarea:focus {
   font-size: 11px;
   font-style: italic;
 }
+
+/* ─── yeouido card preview bar (호버/선택 시 손패 위 설명) ─── */
+.yd-card-preview {
+  flex-direction: column;
+  gap: 3px;
+  white-space: normal;
+  max-width: min(360px, calc(100% - 16px));
+  text-align: center;
+  pointer-events: none;
+  z-index: 10;
+}
+.yd-preview-name {
+  color: var(--gold-soft, #d9b66c);
+  font-weight: 700;
+  font-size: 13px;
+}
+.yd-preview-text {
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.5;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}

@@ -5,17 +5,35 @@ import { CARD_DESC_KR, CARD_KEY, CARD_NAMES_KR } from "../model/cards";
 type Props = {
   card: number;
   size?: number;
+  /** Fill the parent width instead of a fixed pixel size (keeps 2:3 ratio). */
+  fluid?: boolean;
   faceDown?: boolean;
   /** Disable the hover tooltip even for face-up cards (e.g. inside a Modal that already shows the info). */
   noTooltip?: boolean;
+  className?: string;
+  style?: React.CSSProperties;
 };
 
-export const CardImage = ({ card, size = 64, faceDown, noTooltip }: Props) => {
+export const CardImage = ({
+  card,
+  size = 64,
+  fluid,
+  faceDown,
+  noTooltip,
+  className,
+  style,
+}: Props) => {
   const key = faceDown ? "back" : CARD_KEY[card] || "back";
   const showTooltip = !faceDown && !noTooltip && card > 0;
+  const hostSize: React.CSSProperties = fluid
+    ? { width: "100%", aspectRatio: "2 / 3" }
+    : { width: size, height: size * 1.5 };
 
   return (
-    <div className="card-host" style={{ width: size, height: size * 1.5 }}>
+    <div
+      className={className ? `card-host ${className}` : "card-host"}
+      style={{ ...hostSize, ...style }}
+    >
       <div
         style={{
           width: "100%",

@@ -537,29 +537,6 @@ input:focus, select:focus, textarea:focus {
   transform: translateX(-50%) translateY(0) scale(1);
 }
 
-.target-card {
-  background: transparent;
-  border: 2px solid rgba(217, 182, 108, 0.45);
-  border-radius: 8px;
-  padding: 8px;
-  cursor: pointer;
-  transition: transform 0.1s ease, border-color 0.12s ease,
-              box-shadow 0.15s ease;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  color: var(--text);
-  min-width: 90px;
-  box-shadow: none;
-}
-.target-card:hover:not(:disabled) {
-  border-color: var(--gold-soft);
-  box-shadow: 0 0 0 1px var(--gold-soft), 0 0 16px rgba(217, 182, 108, 0.35);
-  transform: translateY(-2px);
-}
-.target-card:disabled { opacity: 0.35; cursor: not-allowed; }
-
 /* ─── Spinner ────────────────────────────────────────────────────── */
 .spinner-wrap {
   display: inline-flex;
@@ -961,4 +938,432 @@ input:focus, select:focus, textarea:focus {
   align-items: flex-end;
   font-size: 11px;
   line-height: 1.2;
+}
+
+/* ─── Love Letter table (.ll-*) ──────────────────────────────────── */
+
+/* Table panel grid: counter · opponents · center stage/deck · my hand */
+.ll-table {
+  position: relative;
+  padding: 12px 16px;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  background:
+    radial-gradient(60% 80% at 50% 45%, rgba(122, 63, 255, 0.18) 0%, transparent 60%),
+    linear-gradient(180deg, rgba(20, 13, 46, 0.9) 0%, rgba(33, 25, 74, 0.9) 100%);
+}
+
+/* Card counter strip */
+.ll-counter {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 2px 4px;
+  scrollbar-width: none;
+}
+.ll-counter::-webkit-scrollbar { display: none; }
+.ll-counter-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  transition: opacity 0.3s ease, filter 0.3s ease;
+}
+.ll-counter-item--depleted {
+  opacity: 0.35;
+  filter: grayscale(1);
+}
+.ll-counter-count {
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--gold-soft, #d9b66c);
+  line-height: 1;
+}
+.ll-counter-item--depleted .ll-counter-count { color: var(--muted); }
+
+/* Opponent seats */
+.ll-seats {
+  display: flex;
+  justify-content: space-around;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.ll-seat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  min-width: 128px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+  transition: opacity 0.25s ease, filter 0.25s ease, box-shadow 0.25s ease,
+              border-color 0.25s ease, background 0.25s ease;
+}
+.ll-seat--turn {
+  background: rgba(217, 182, 108, 0.14);
+  border-color: var(--gold-soft, #d9b66c);
+}
+.ll-seat--eliminated { opacity: 0.45; }
+.ll-seat--dimmed {
+  opacity: 0.3;
+  filter: saturate(0.3);
+  pointer-events: none;
+}
+.ll-seat--targetable {
+  cursor: crosshair;
+  border-color: var(--gold, #f1d999);
+  background: rgba(217, 182, 108, 0.1);
+  animation: ll-pulse 1.1s ease-in-out infinite;
+}
+.ll-seat--targetable:hover {
+  background: rgba(217, 182, 108, 0.24);
+  transform: translateY(-2px);
+}
+@keyframes ll-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(241, 217, 153, 0.55); }
+  70% { box-shadow: 0 0 0 9px rgba(241, 217, 153, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(241, 217, 153, 0); }
+}
+.ll-seat-name {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+.ll-seat-discard {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  margin-top: 2px;
+  min-height: 0;
+}
+.ll-seat-discard > * { flex: 0 0 auto; }
+.ll-seat-discard > :not(:first-child) { margin-left: -16px; }
+
+/* Deck stack */
+.ll-deck {
+  position: relative;
+  display: inline-block;
+}
+.ll-deck-ghost {
+  position: absolute;
+  inset: 0;
+}
+.ll-deck-badge {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--font-display);
+  font-size: 11px;
+  color: var(--gold-soft, #d9b66c);
+  background: rgba(10, 6, 26, 0.92);
+  border: 1px solid rgba(217, 182, 108, 0.6);
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+  z-index: 2;
+}
+
+/* My hand */
+.ll-hand-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  position: relative;
+  /* headroom so raised/tilted cards don't clip against the row above */
+  padding-top: 30px;
+}
+.ll-hand {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  perspective: 900px;
+  gap: 14px;
+}
+.ll-hand-card {
+  position: relative;
+  /* big cards, but never taller than ~28% of the viewport height */
+  width: min(clamp(96px, 15vw, 170px), calc(28dvh / 1.5));
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: default;
+  transform-style: preserve-3d;
+  will-change: transform;
+  transform:
+    rotate(var(--fan-rot, 0deg))
+    translateY(var(--fan-y, 0px))
+    rotateX(var(--tilt-x, 0deg))
+    rotateY(var(--tilt-y, 0deg))
+    translateY(var(--lift, 0px))
+    scale(var(--zoom, 1));
+  transition: transform 0.22s ease, filter 0.22s ease, opacity 0.22s ease;
+}
+.ll-hand-card--playable {
+  cursor: pointer;
+  filter: drop-shadow(0 0 14px rgba(217, 182, 108, 0.55));
+}
+.ll-hand-card--selected {
+  --lift: -24px;
+  --zoom: 1.13;
+  z-index: 3;
+  filter: drop-shadow(0 0 22px rgba(241, 217, 153, 0.8));
+}
+.ll-hand-card--locked {
+  cursor: not-allowed;
+  filter: grayscale(0.65) brightness(0.8);
+}
+.ll-hand-card--incoming { opacity: 0; }
+.ll-hand-card--shake { animation: ll-shake 0.4s ease; }
+@keyframes ll-shake {
+  0%, 100% { margin-left: 0; }
+  20% { margin-left: -8px; }
+  40% { margin-left: 7px; }
+  60% { margin-left: -5px; }
+  80% { margin-left: 3px; }
+}
+.ll-lock-badge {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  font-size: 16px;
+  filter: none;
+  z-index: 2;
+}
+
+/* Action strip: floats above the hand (confirm chips / guess strip / hint) */
+.ll-action-strip {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 7;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 24px);
+  padding: 8px 12px;
+  background: rgba(14, 9, 34, 0.94);
+  border: 1px solid var(--gold, #f1d999);
+  border-radius: 12px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.55), 0 0 18px rgba(217, 182, 108, 0.25);
+  animation: ll-strip-in 0.18s ease;
+  white-space: nowrap;
+}
+@keyframes ll-strip-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+.ll-guess-strip {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 2px;
+}
+.ll-guess-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px;
+  background: transparent;
+  border: 2px solid rgba(217, 182, 108, 0.45);
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--text);
+  font-size: 11px;
+  flex: 0 0 auto;
+  box-shadow: none;
+  transition: transform 0.1s ease, border-color 0.12s ease, box-shadow 0.15s ease;
+}
+.ll-guess-card:hover {
+  border-color: var(--gold-soft, #d9b66c);
+  box-shadow: 0 0 14px rgba(217, 182, 108, 0.4);
+  transform: translateY(-3px);
+}
+.ll-self-pad {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--gold, #f1d999);
+  background: rgba(217, 182, 108, 0.1);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  cursor: crosshair;
+  animation: ll-pulse 1.1s ease-in-out infinite;
+}
+.ll-self-pad:hover { background: rgba(217, 182, 108, 0.24); }
+
+/* Center stage announcement overlay */
+.ll-centerstage {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  pointer-events: none;
+  z-index: 5;
+}
+.ll-centerstage-card {
+  width: clamp(130px, 22vw, 210px);
+  animation: ll-slam 0.25s cubic-bezier(0.2, 0.9, 0.3, 1.2);
+  filter: drop-shadow(0 12px 32px rgba(0, 0, 0, 0.65));
+}
+@keyframes ll-slam {
+  0% { transform: scale(1.7) rotate(-6deg); opacity: 0; }
+  60% { transform: scale(0.96) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg); }
+}
+.ll-centerstage-banner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  max-width: min(440px, calc(100% - 32px));
+  padding: 10px 18px;
+  background: rgba(10, 6, 26, 0.92);
+  border: 1px solid var(--gold, #f1d999);
+  border-radius: 12px;
+  box-shadow: 0 0 24px rgba(217, 182, 108, 0.3);
+  text-align: center;
+  animation: ll-slam 0.25s ease;
+}
+.ll-centerstage-title {
+  font-family: var(--font-display);
+  font-size: clamp(14px, 2.4vw, 20px);
+  color: var(--gold-soft, #d9b66c);
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+  line-height: 1.4;
+}
+.ll-centerstage-sub {
+  font-size: clamp(12px, 1.8vw, 14px);
+  color: var(--text);
+  line-height: 1.45;
+  white-space: normal;
+}
+.ll-centerstage-note {
+  font-size: 11px;
+  color: var(--muted);
+}
+.ll-centerstage-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  transition: transform 0.35s cubic-bezier(0.5, 0, 0.9, 0.4), opacity 0.35s ease;
+}
+.ll-centerstage-banner--hit { border-color: var(--danger, #ff6b6b); }
+.ll-centerstage-banner--hit .ll-centerstage-title { color: var(--danger, #ff6b6b); }
+
+/* Turn banner */
+.ll-turn-banner {
+  position: absolute;
+  top: 40%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 6;
+}
+.ll-turn-banner-inner {
+  font-family: var(--font-display);
+  font-size: clamp(18px, 4vw, 30px);
+  color: var(--gold, #f1d999);
+  background: linear-gradient(90deg, transparent, rgba(10, 6, 26, 0.92) 18%, rgba(10, 6, 26, 0.92) 82%, transparent);
+  border-top: 1px solid rgba(241, 217, 153, 0.5);
+  border-bottom: 1px solid rgba(241, 217, 153, 0.5);
+  padding: 12px 56px;
+  text-shadow: 0 0 18px rgba(241, 217, 153, 0.6);
+  animation: ll-swoosh 1.1s cubic-bezier(0.2, 0.8, 0.3, 1) forwards;
+}
+@keyframes ll-swoosh {
+  0% { transform: translateX(-120%) skewX(-12deg); opacity: 0; }
+  18% { transform: translateX(0) skewX(-6deg); opacity: 1; }
+  78% { transform: translateX(0) skewX(-6deg); opacity: 1; }
+  100% { transform: translateX(120%) skewX(-12deg); opacity: 0; }
+}
+
+/* Draw flyer: deck → hand with a back→face flip */
+.ll-draw-fly {
+  position: absolute;
+  z-index: 4;
+  pointer-events: none;
+  transition: transform 0.55s cubic-bezier(0.3, 0.9, 0.4, 1);
+  perspective: 700px;
+}
+.ll-flip {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transition: transform 0.32s ease 0.22s;
+}
+.ll-flip--flipped { transform: rotateY(180deg); }
+.ll-flip-face {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 6px;
+  border: 1px solid rgba(217, 182, 108, 0.6);
+  background-size: cover;
+  background-position: center;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+}
+.ll-flip-face--front { transform: rotateY(180deg); }
+
+/* Status line under the hand */
+.ll-status {
+  font-size: 14px;
+  text-align: center;
+}
+
+/* Round-end reveal rows */
+.ll-reveal-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+.ll-winner-row {
+  border-color: var(--gold, #f1d999);
+  background: rgba(217, 182, 108, 0.12);
+  box-shadow: 0 0 16px rgba(217, 182, 108, 0.3);
+}
+
+@media (max-width: 640px) {
+  .ll-table { padding: 8px; gap: 6px; }
+  .ll-hand { gap: 8px; }
+  .ll-hand-card { width: min(clamp(84px, 24vw, 130px), calc(24dvh / 1.5)); }
+  .ll-hand-zone { padding-top: 18px; }
+  .ll-seat { min-width: 96px; padding: 6px 8px; }
+  .ll-seat-name { font-size: 12px; max-width: 110px; }
+  .ll-centerstage-card { width: 128px; }
+  .ll-status { font-size: 12px; }
+  .ll-action-strip { padding: 6px 8px; }
 }

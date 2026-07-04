@@ -1,21 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useReducer,
+  useRef,
+  useState,
+} from "react";
 import { useRouter } from "next/navigation";
-import dynamic from "next/dynamic";
 import type { Room } from "@colyseus/sdk";
 import { useGameRoom } from "@/features/game-session/lib/useGameRoom";
 import { useAuthStore } from "@/entities/user/model/authStore";
-import { CARD, CARD_NAMES_KR, cardNeedsTarget } from "../model/cards";
-import { PlayCardModal } from "./PlayCardModal";
+import { CARD } from "../model/cards";
+import { logToAnnouncement } from "../model/announcements";
+import { useAnnouncementQueue } from "../model/useAnnouncementQueue";
+import {
+  IDLE,
+  targetingReducer,
+  validTargetSids,
+} from "../model/targeting";
+import type { Flight } from "./DrawFlyer";
 import { CardImage } from "./CardImage";
 import { ActionLog } from "./ActionLog";
+import { TableView } from "./TableView";
 import type { EffectsOverlayHandle } from "./PhaserEffectsOverlay";
-
-// Phaser pulls in `window`; load only on the client.
-const PhaserEffectsOverlay = dynamic(() => import("./PhaserEffectsOverlay"), {
-  ssr: false,
-});
 
 type Props = {
   mode: "create" | "join";
@@ -43,10 +52,24 @@ export const LoveLetterTable = (props: Props) => {
 
   const [stateSnap, setStateSnap] = useState<any>(null);
   const [myHand, setMyHand] = useState<number[]>([]);
-  const [peek, setPeek] = useState<{ nickname: string; card: number } | null>(null);
   const [revealed, setRevealed] = useState<Record<string, number[]> | null>(null);
-  const [playing, setPlaying] = useState<number | null>(null);
   const [chatInput, setChatInput] = useState("");
+
+  // ─── Center-stage announcement queue ─── //
+  const { current: announcement, leaving: announcementLeaving, enqueue } =
+    useAnnouncementQueue();
+
+  // ─── In-table targeting ─── //
+  const [targeting, dispatchTargeting] = useReducer(targetingReducer, IDLE);
+  const [shakeKeys, setShakeKeys] = useState<number[]>([]);
+  const pendingPlayRef = useRef(false);
+
+  // ─── Turn banner / draw animation ─── //
+  const [showTurnBanner, setShowTurnBanner] = useState(false);
+  const [flight, setFlight] = useState<Flight | null>(null);
+  const [incomingIdx, setIncomingIdx] = useState<number | null>(null);
+  const prevHandLenRef = useRef(0);
+  const prevTurnSidRef = useRef<string | undefined>(undefined);
 
   // ─── Phaser effects wiring ─── //
   const overlayRef = useRef<EffectsOverlayHandle | null>(null);
@@ -76,6 +99,8 @@ export const LoveLetterTable = (props: Props) => {
     return undefined;
   };
 
+  const resolveAnchor = (nickname?: string) => anchorFor(sidByNickname(nickname));
+
   // Wire Colyseus state to React
   useEffect(() => {
     if (!room) return;
@@ -85,25 +110,32 @@ export const LoveLetterTable = (props: Props) => {
     onChange();
 
     r.onMessage("hand", (msg: { cards: number[] }) => {
+      pendingPlayRef.current = false;
       setMyHand(msg.cards);
     });
     r.onMessage("priestPeek", (msg: { nickname: string; card: number }) => {
-      setPeek(msg);
-      setTimeout(() => setPeek(null), 6000);
+      enqueue({ type: "peek", card: msg.card, nickname: msg.nickname });
     });
     r.onMessage("revealHands", (msg: Record<string, number[]>) => {
       setRevealed(msg);
     });
-  }, [room]);
+  }, [room, enqueue]);
 
-  // Hide reveal modal when a new round begins
+  // Hide revealed hands when a new round actually begins. Only clear on the
+  // transition INTO "playing" — the revealHands message can arrive while the
+  // local snapshot still says "playing" (message beats the state patch), and
+  // clearing on that stale phase wiped the round-end reveal.
+  const prevPhaseForRevealRef = useRef<string | undefined>(undefined);
   useEffect(() => {
-    if (stateSnap?.phase === "playing" && revealed) setRevealed(null);
-  }, [stateSnap?.phase, revealed]);
+    const phaseNow = stateSnap?.phase;
+    const prev = prevPhaseForRevealRef.current;
+    prevPhaseForRevealRef.current = phaseNow;
+    if (phaseNow === "playing" && prev && prev !== "playing") setRevealed(null);
+  }, [stateSnap?.phase]);
 
-  // Dispatch Phaser effects when new server log entries arrive.
-  // Diff by `ts` (not length) so we survive the server's 200-entry truncation
-  // and don't re-fire backlog on reconnect.
+  // Dispatch Phaser effects + center-stage announcements when new server log
+  // entries arrive. Diff by `ts` (not length) so we survive the server's
+  // 200-entry truncation and don't re-fire backlog on reconnect.
   useEffect(() => {
     const log = stateSnap?.log;
     if (!log || log.length === 0) return;
@@ -118,6 +150,8 @@ export const LoveLetterTable = (props: Props) => {
       if (e.ts <= seen) continue;
       if (e.ts > max) max = e.ts;
       dispatchEffect(e);
+      const ann = logToAnnouncement(e);
+      if (ann) enqueue(ann);
     }
     lastSeenTsRef.current = max;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -175,6 +209,191 @@ export const LoveLetterTable = (props: Props) => {
       (myHand.includes(CARD.KING) || myHand.includes(CARD.PRINCE))
     );
   }, [myHand]);
+
+  // ─── Targeting flow ─── //
+
+  const canAct =
+    !asSpectator && isMyTurn && !me?.eliminated && phase === "playing";
+
+  const sendPlay = useCallback(
+    (payload: { card: number; targetSessionId?: string; guardGuess?: number }) => {
+      if (pendingPlayRef.current) return;
+      pendingPlayRef.current = true;
+      room?.send("playCard", payload);
+      dispatchTargeting({ type: "cancel" });
+      // Fallback in case neither a hand message nor a turn change arrives.
+      setTimeout(() => {
+        pendingPlayRef.current = false;
+      }, 2000);
+    },
+    [room],
+  );
+
+  const onPickCard = (card: number, idx: number) => {
+    if (!canAct || pendingPlayRef.current) return;
+    const locked =
+      countessRestriction && (card === CARD.KING || card === CARD.PRINCE);
+    if (locked) {
+      setShakeKeys((prev) => {
+        const next = [...prev];
+        next[idx] = (next[idx] ?? 0) + 1;
+        return next;
+      });
+      return;
+    }
+    // Second tap on the raised confirm card plays it.
+    if (targeting.mode === "confirm" && targeting.handIdx === idx) {
+      sendPlay({ card: targeting.card });
+      return;
+    }
+    const validCount = meSid
+      ? validTargetSids(card, meSid, players).length
+      : 0;
+    dispatchTargeting({ type: "pick", card, handIdx: idx, validTargetCount: validCount });
+  };
+
+  const onSeatTarget = (sid: string) => {
+    if (targeting.mode !== "target" || !canAct || !meSid) return;
+    // Re-validate at click time — the seat may have just been eliminated.
+    if (!validTargetSids(targeting.card, meSid, players).includes(sid)) return;
+    if (targeting.card === CARD.GUARD) {
+      dispatchTargeting({ type: "seat", sid });
+      return;
+    }
+    sendPlay({ card: targeting.card, targetSessionId: sid });
+  };
+
+  const onGuess = (guess: number) => {
+    if (targeting.mode !== "guess" || !canAct) return;
+    sendPlay({
+      card: targeting.card,
+      targetSessionId: targeting.targetSid,
+      guardGuess: guess,
+    });
+  };
+
+  const onConfirm = () => {
+    if (targeting.mode !== "confirm" || !canAct) return;
+    sendPlay({ card: targeting.card });
+  };
+
+  const cancelTargeting = useCallback(
+    () => dispatchTargeting({ type: "cancel" }),
+    [],
+  );
+
+  // Reset targeting whenever the situation it was built on changes.
+  useEffect(() => {
+    if (targeting.mode === "idle") return;
+    const stillHave = myHand[targeting.handIdx] === targeting.card;
+    if (!canAct || !stillHave) cancelTargeting();
+  }, [targeting, canAct, myHand, cancelTargeting]);
+
+  // ESC cancels targeting.
+  const targetingActive = targeting.mode !== "idle";
+  useEffect(() => {
+    if (!targetingActive) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") cancelTargeting();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [targetingActive, cancelTargeting]);
+
+  const targetableSids = useMemo(() => {
+    if (targeting.mode !== "target" || !meSid) return new Set<string>();
+    return new Set(validTargetSids(targeting.card, meSid, players));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [targeting, meSid, stateSnap]);
+
+  // Clear the pending-play latch when the turn moves on.
+  useEffect(() => {
+    pendingPlayRef.current = false;
+  }, [stateSnap?.turnIndex]);
+
+  // ─── Turn banner ─── //
+  useEffect(() => {
+    const prev = prevTurnSidRef.current;
+    prevTurnSidRef.current = currentTurnSid;
+    if (
+      phase === "playing" &&
+      currentTurnSid &&
+      currentTurnSid !== prev &&
+      currentTurnSid === meSid &&
+      !me?.eliminated &&
+      !asSpectator
+    ) {
+      setShowTurnBanner(true);
+      const t = setTimeout(() => setShowTurnBanner(false), 1150);
+      return () => clearTimeout(t);
+    }
+  }, [currentTurnSid, phase, meSid, me?.eliminated, asSpectator]);
+
+  // ─── Draw animation: deck → hand when my hand grows ─── //
+  useEffect(() => {
+    const prevLen = prevHandLenRef.current;
+    prevHandLenRef.current = myHand.length;
+    if (asSpectator || myHand.length === 0 || myHand.length <= prevLen) return;
+    if (stateSnap?.phase !== "playing") return;
+    const wrap = overlayWrapRef.current;
+    const deck = deckRef.current;
+    const handEl = myHandRef.current;
+    if (!wrap || !deck || !handEl) return;
+    const wr = wrap.getBoundingClientRect();
+    const dr = deck.getBoundingClientRect();
+    const hr = handEl.getBoundingClientRect();
+    // Match the CSS card width: min(clamp(96px, 15vw, 170px), 28dvh / 1.5)
+    const existing = handEl.querySelector<HTMLElement>(".ll-hand-card");
+    const w = existing
+      ? existing.getBoundingClientRect().width
+      : Math.min(
+          Math.min(Math.max(96, window.innerWidth * 0.15), 170),
+          (window.innerHeight * 0.28) / 1.5,
+        );
+    const idx = myHand.length - 1;
+    setIncomingIdx(idx);
+    setFlight({
+      card: myHand[idx],
+      from: {
+        x: dr.left - wr.left + dr.width / 2,
+        y: dr.top - wr.top + dr.height / 2,
+      },
+      to: {
+        x: hr.left - wr.left + hr.width / 2,
+        y: hr.top - wr.top + hr.height / 2,
+      },
+      w,
+      h: w * 1.5,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myHand]);
+
+  const onFlightDone = useCallback(() => {
+    setFlight(null);
+    setIncomingIdx(null);
+  }, []);
+
+  // ─── Round/game end: delay modals so the last announcement plays ─── //
+  const [showRoundEndModal, setShowRoundEndModal] = useState(false);
+  useEffect(() => {
+    if (phase !== "roundEnd") {
+      setShowRoundEndModal(false);
+      return;
+    }
+    const t = setTimeout(() => setShowRoundEndModal(true), 1300);
+    return () => clearTimeout(t);
+  }, [phase]);
+
+  const [showGameEndModal, setShowGameEndModal] = useState(false);
+  useEffect(() => {
+    if (phase !== "gameEnd") {
+      setShowGameEndModal(false);
+      return;
+    }
+    overlayRef.current?.playEffect({ kind: "confetti" });
+    const t = setTimeout(() => setShowGameEndModal(true), 900);
+    return () => clearTimeout(t);
+  }, [phase]);
 
   const leave = () => {
     room?.leave().catch(() => {});
@@ -264,26 +483,30 @@ export const LoveLetterTable = (props: Props) => {
             opponents={opponents}
             currentTurnSid={currentTurnSid}
             deckRemaining={stateSnap?.deckRemaining ?? 0}
+            publicDiscard={stateSnap?.publicDiscard ?? []}
             myHand={asSpectator ? [] : myHand}
-            isMyTurn={!asSpectator && isMyTurn && !me?.eliminated}
+            isMyTurn={canAct}
             myEliminated={!!me?.eliminated}
-            onPickCard={(c) => {
-              if (asSpectator) return;
-              // Countess auto-discard rule still routed through the modal hint.
-              const restricted =
-                myHand.includes(CARD.COUNTESS) &&
-                (myHand.includes(CARD.KING) || myHand.includes(CARD.PRINCE)) &&
-                c !== CARD.COUNTESS;
-              // No-target cards (Handmaid, Countess, Princess) — just send.
-              if (!restricted && !cardNeedsTarget(c)) {
-                room?.send("playCard", { card: c });
-                return;
-              }
-              setPlaying(c);
-            }}
             myTokens={me?.tokens ?? 0}
             myNickname={asSpectator ? "관전 중" : (user?.nickname ?? "나")}
             myProtected={!!me?.protected}
+            targeting={targeting}
+            targetableSids={targetableSids}
+            countessRestriction={countessRestriction}
+            shakeKeys={shakeKeys}
+            incomingIdx={incomingIdx}
+            flight={flight}
+            showTurnBanner={showTurnBanner}
+            announcement={announcement}
+            announcementLeaving={announcementLeaving}
+            resolveAnchor={resolveAnchor}
+            onPickCard={onPickCard}
+            onSeatTarget={onSeatTarget}
+            onGuess={onGuess}
+            onConfirm={onConfirm}
+            onCancel={cancelTargeting}
+            onFlightDone={onFlightDone}
+            meSid={meSid}
             seatRefs={seatRefs}
             myHandRef={myHandRef}
             deckRef={deckRef}
@@ -304,36 +527,41 @@ export const LoveLetterTable = (props: Props) => {
         </div>
       )}
 
-      {peek && (
-        <FloatingNote onClose={() => setPeek(null)}>
-          <strong>{peek.nickname}</strong>의 카드는{" "}
-          <strong>{CARD_NAMES_KR[peek.card]}</strong> 입니다.
-        </FloatingNote>
-      )}
-
-      {phase === "roundEnd" && stateSnap && (
+      {phase === "roundEnd" && stateSnap && showRoundEndModal && (
         <Modal>
           <h2 className="title" style={{ margin: 0 }}>라운드 종료</h2>
           {stateSnap.roundWinnerId && (
-            <p>
+            <p style={{ margin: 0 }}>
               승자:{" "}
-              <strong>
+              <strong style={{ color: "var(--gold-soft)" }}>
                 {players.find((p) => p.sessionId === stateSnap.roundWinnerId)?.nickname}
               </strong>
             </p>
           )}
           {revealed && (
-            <div className="col">
+            <div className="col" style={{ gap: 6 }}>
               <h3 className="title" style={{ margin: 0, fontSize: "1rem" }}>최종 손패</h3>
               {Object.entries(revealed).map(([sid, cards]) => {
                 const player = players.find((p) => p.sessionId === sid);
+                const isWinner = sid === stateSnap.roundWinnerId;
                 return (
-                  <div key={sid} className="row" style={{ gap: 8 }}>
-                    <span style={{ minWidth: 120 }}>{player?.nickname ?? sid}</span>
-                    <div className="row" style={{ gap: 6 }}>
+                  <div
+                    key={sid}
+                    className={`ll-reveal-row${isWinner ? " ll-winner-row" : ""}`}
+                  >
+                    <span style={{ minWidth: 110, fontSize: 14 }}>
+                      {isWinner ? "👑 " : ""}
+                      {player?.nickname ?? sid}
+                    </span>
+                    <div className="row" style={{ gap: 8, flexWrap: "wrap" }}>
                       {cards.map((c, i) => (
-                        <CardImage key={i} card={c} size={42} />
+                        <CardImage key={i} card={c} size={64} />
                       ))}
+                      {cards.length === 0 && (
+                        <span className="muted" style={{ fontSize: 13 }}>
+                          (탈락)
+                        </span>
+                      )}
                     </div>
                   </div>
                 );
@@ -350,12 +578,17 @@ export const LoveLetterTable = (props: Props) => {
         </Modal>
       )}
 
-      {phase === "gameEnd" && stateSnap && (
-        <Modal>
-          <h2 className="title" style={{ margin: 0 }}>🎉 게임 종료</h2>
-          <p>
+      {phase === "gameEnd" && stateSnap && showGameEndModal && (
+        <Modal backdrop="rgba(8,5,22,0.5)">
+          <h2 className="title" style={{ margin: 0 }}>🏆 게임 종료</h2>
+          <p style={{ margin: 0 }}>
             최종 승자:{" "}
-            <strong>
+            <strong
+              style={{
+                color: "var(--gold-soft)",
+                fontFamily: "var(--font-display)",
+              }}
+            >
               {players.find((p) => p.sessionId === stateSnap.gameWinnerId)?.nickname}
             </strong>
           </p>
@@ -364,25 +597,6 @@ export const LoveLetterTable = (props: Props) => {
           </div>
         </Modal>
       )}
-
-      {playing !== null && isMyTurn && me && !me.eliminated && (
-        <PlayCardModal
-          card={playing}
-          selfSessionId={meSid!}
-          targets={players.map((p) => ({
-            sessionId: p.sessionId,
-            nickname: p.nickname,
-            eliminated: p.eliminated,
-            protected: p.protected,
-          }))}
-          myHandHasCountessRestriction={countessRestriction}
-          onCancel={() => setPlaying(null)}
-          onConfirm={(payload) => {
-            room?.send("playCard", payload);
-            setPlaying(null);
-          }}
-        />
-      )}
     </div>
   );
 };
@@ -390,202 +604,6 @@ export const LoveLetterTable = (props: Props) => {
 // ────────────────────────────────────────────────────────────────────────────
 // Subcomponents
 // ────────────────────────────────────────────────────────────────────────────
-
-type OpponentView = {
-  sessionId: string;
-  nickname: string;
-  discard: number[];
-  eliminated: boolean;
-  protected: boolean;
-  tokens: number;
-};
-
-const TableView = ({
-  opponents,
-  currentTurnSid,
-  deckRemaining,
-  myHand,
-  isMyTurn,
-  myEliminated,
-  onPickCard,
-  myTokens,
-  myNickname,
-  myProtected,
-  seatRefs,
-  myHandRef,
-  deckRef,
-  overlayWrapRef,
-  overlayRef,
-}: {
-  opponents: OpponentView[];
-  currentTurnSid?: string;
-  deckRemaining: number;
-  myHand: number[];
-  isMyTurn: boolean;
-  myEliminated: boolean;
-  onPickCard: (card: number) => void;
-  myTokens: number;
-  myNickname: string;
-  myProtected: boolean;
-  seatRefs: React.MutableRefObject<Map<string, HTMLDivElement | null>>;
-  myHandRef: React.MutableRefObject<HTMLDivElement | null>;
-  deckRef: React.MutableRefObject<HTMLDivElement | null>;
-  overlayWrapRef: React.MutableRefObject<HTMLDivElement | null>;
-  overlayRef: React.MutableRefObject<EffectsOverlayHandle | null>;
-}) => {
-  return (
-    <div
-      ref={overlayWrapRef}
-      className="panel"
-      style={{
-        position: "relative",
-        padding: 16,
-        display: "grid",
-        gridTemplateRows: "auto 1fr auto",
-        gap: 16,
-        minHeight: 0,
-        height: "100%",
-        overflow: "hidden",
-        background:
-          "radial-gradient(60% 80% at 50% 45%, rgba(122,63,255,0.18) 0%, transparent 60%), linear-gradient(180deg, rgba(20,13,46,0.9) 0%, rgba(33,25,74,0.9) 100%)",
-      }}
-    >
-      {/* Opponents row */}
-      <div
-        className="row"
-        style={{
-          justifyContent: "space-around",
-          alignItems: "flex-start",
-          flexWrap: "wrap",
-          gap: 16,
-        }}
-      >
-        {opponents.length === 0 && (
-          <span className="muted">상대를 기다리는 중…</span>
-        )}
-        {opponents.map((op) => (
-          <OpponentSeat
-            key={op.sessionId}
-            op={op}
-            isTurn={op.sessionId === currentTurnSid}
-            registerRef={(el) => seatRefs.current.set(op.sessionId, el)}
-          />
-        ))}
-      </div>
-
-      {/* Deck center */}
-      <div
-        ref={deckRef}
-        className="col"
-        style={{ alignItems: "center", justifyContent: "center", gap: 6 }}
-      >
-        <CardImage card={0} faceDown size={70} />
-        <span className="muted">덱 {deckRemaining}장</span>
-      </div>
-
-      {/* My hand */}
-      <div className="col" style={{ alignItems: "center", gap: 8 }}>
-        <div
-          ref={myHandRef}
-          className="row"
-          style={{ gap: 12, flexWrap: "wrap", justifyContent: "center" }}
-        >
-          {myHand.length === 0 ? (
-            <span className="muted">손패 없음</span>
-          ) : (
-            myHand.map((c, idx) => (
-              <button
-                key={`${c}-${idx}`}
-                onClick={() => isMyTurn && onPickCard(c)}
-                disabled={!isMyTurn}
-                title={CARD_NAMES_KR[c]}
-                style={{
-                  padding: 0,
-                  background: "transparent",
-                  border: "none",
-                  cursor: isMyTurn ? "pointer" : "default",
-                  transition: "transform 0.1s ease",
-                  opacity: isMyTurn ? 1 : 0.75,
-                  filter: isMyTurn
-                    ? "drop-shadow(0 0 12px rgba(217,182,108,0.4))"
-                    : "none",
-                }}
-                onMouseEnter={(e) => {
-                  if (isMyTurn) e.currentTarget.style.transform = "translateY(-6px) scale(1.03)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = "";
-                }}
-              >
-                <CardImage card={c} size={88} />
-              </button>
-            ))
-          )}
-        </div>
-        <div
-          style={{
-            color: myEliminated
-              ? "var(--danger)"
-              : isMyTurn
-                ? "var(--gold-soft)"
-                : "var(--muted)",
-            fontSize: 15,
-          }}
-        >
-          {myEliminated
-            ? "💀 탈락"
-            : isMyTurn
-              ? "내 차례 — 카드를 클릭해서 사용"
-              : "상대 차례를 기다리는 중"}
-          {"  ❤ "}{myTokens} · {myNickname}
-          {myProtected && " 🛡"}
-        </div>
-      </div>
-
-      {/* Phaser effects overlay — animations only, no pointer events */}
-      <PhaserEffectsOverlay ref={overlayRef} />
-    </div>
-  );
-};
-
-const OpponentSeat = ({
-  op,
-  isTurn,
-  registerRef,
-}: {
-  op: OpponentView;
-  isTurn: boolean;
-  registerRef: (el: HTMLDivElement | null) => void;
-}) => (
-  <div
-    ref={registerRef}
-    data-sid={op.sessionId}
-    className="col"
-    style={{
-      alignItems: "center",
-      gap: 4,
-      padding: "8px 10px",
-      borderRadius: 8,
-      background: isTurn ? "rgba(217,182,108,0.14)" : "transparent",
-      border: isTurn ? "1px solid var(--gold-soft)" : "1px solid transparent",
-      minWidth: 140,
-      opacity: op.eliminated ? 0.45 : 1,
-    }}
-  >
-    <div style={{ color: isTurn ? "var(--gold-soft)" : "var(--text)" }}>
-      {op.eliminated ? "💀 " : ""}{op.nickname}{op.protected ? " 🛡" : ""}{isTurn ? " ▶" : ""}
-    </div>
-    <CardImage card={0} faceDown size={56} />
-    <div className="muted" style={{ fontSize: 13 }}>❤ {op.tokens}</div>
-    {op.discard.length > 0 && (
-      <div className="row" style={{ gap: 2, flexWrap: "wrap", justifyContent: "center", marginTop: 2 }}>
-        {op.discard.slice(-6).map((c, i) => (
-          <CardImage key={i} card={c} size={26} />
-        ))}
-      </div>
-    )}
-  </div>
-);
 
 const RoomClosedRedirect = () => {
   const router = useRouter();
@@ -729,44 +747,27 @@ const ScorePanel = ({ players, meSid }: { players: any[]; meSid: string }) => (
   </div>
 );
 
-const Modal = ({ children }: { children: React.ReactNode }) => (
+const Modal = ({
+  children,
+  backdrop = "rgba(8,5,22,0.7)",
+}: {
+  children: React.ReactNode;
+  backdrop?: string;
+}) => (
   <div
     style={{
       position: "fixed",
       inset: 0,
-      background: "rgba(8,5,22,0.7)",
+      background: backdrop,
       display: "flex",
       alignItems: "center",
       justifyContent: "center",
       zIndex: 40,
     }}
   >
-    <div className="panel col" style={{ width: "min(520px, 92vw)" }}>
+    <div className="panel col" style={{ width: "min(560px, 92vw)", maxHeight: "86dvh", overflowY: "auto" }}>
       {children}
     </div>
-  </div>
-);
-
-const FloatingNote = ({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode;
-  onClose: () => void;
-}) => (
-  <div
-    onClick={onClose}
-    className="panel"
-    style={{
-      position: "fixed",
-      right: 16,
-      bottom: 16,
-      maxWidth: 320,
-      cursor: "pointer",
-      borderColor: "var(--gold-soft)",
-    }}
-  >
-    {children}
   </div>
 );
 

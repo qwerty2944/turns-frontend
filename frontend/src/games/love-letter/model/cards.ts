@@ -42,6 +42,18 @@ export const CARD_KEY: Record<number, string> = {
   8: "princess",
 };
 
+/** Copies of each card in the 16-card deck (5 Guards … 1 Princess). */
+export const CARD_TOTALS: Record<number, number> = {
+  1: 5,
+  2: 2,
+  3: 2,
+  4: 2,
+  5: 2,
+  6: 1,
+  7: 1,
+  8: 1,
+};
+
 export const cardNeedsTarget = (card: number) =>
   card === CARD.GUARD ||
   card === CARD.PRIEST ||

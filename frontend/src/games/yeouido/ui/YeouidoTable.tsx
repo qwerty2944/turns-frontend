@@ -13,7 +13,7 @@ import dynamic from "next/dynamic";
 import type { Room } from "@colyseus/sdk";
 import { useGameRoom } from "@/features/game-session/lib/useGameRoom";
 import { useAuthStore } from "@/entities/user/model/authStore";
-import { isInApp } from "@/shared/lib/appBridge";
+import { exitGameToApp, isInApp } from "@/shared/lib/appBridge";
 import { useAppLobby } from "@/shared/lib/useAppLobby";
 import { cardArt, cardView, FACTION_META } from "../model/cards";
 import {
@@ -441,7 +441,7 @@ export const YeouidoTable = (props: Props) => {
 
   const leave = () => {
     room?.leave().catch(() => {});
-    router.push("/lobby");
+    if (!exitGameToApp()) router.push("/lobby");
   };
 
   const sendChat = () => {
@@ -987,7 +987,9 @@ const LogPanel = ({ snap }: { snap: Snap }) => {
 const RoomClosedRedirect = () => {
   const router = useRouter();
   useEffect(() => {
-    const t = setTimeout(() => router.replace("/lobby"), 2500);
+    const t = setTimeout(() => {
+      if (!exitGameToApp()) router.replace("/lobby");
+    }, 2500);
     return () => clearTimeout(t);
   }, [router]);
   return (

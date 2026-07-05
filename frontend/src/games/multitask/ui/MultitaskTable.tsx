@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import type { Room } from "@colyseus/sdk";
 import { useGameRoom } from "@/features/game-session/lib/useGameRoom";
+import { exitGameToApp } from "@/shared/lib/appBridge";
 import { useAppLobby } from "@/shared/lib/useAppLobby";
 import { useAuthStore } from "@/entities/user/model/authStore";
 import type { PlayerView } from "../scene/PlayerBoardScene";
@@ -217,7 +218,7 @@ export const MultitaskTable = (props: Props) => {
 
   const leave = () => {
     room?.leave().catch(() => {});
-    router.push("/lobby");
+    if (!exitGameToApp()) router.push("/lobby");
   };
 
   const sendHold = () => {
@@ -673,7 +674,9 @@ const Modal = ({ children }: { children: React.ReactNode }) => (
 const RoomClosedRedirect = () => {
   const router = useRouter();
   useEffect(() => {
-    const t = setTimeout(() => router.replace("/lobby"), 2500);
+    const t = setTimeout(() => {
+      if (!exitGameToApp()) router.replace("/lobby");
+    }, 2500);
     return () => clearTimeout(t);
   }, [router]);
   return (

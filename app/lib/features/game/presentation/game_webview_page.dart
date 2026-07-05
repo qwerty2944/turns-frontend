@@ -185,6 +185,13 @@ class _GameWebViewPageState extends ConsumerState<GameWebViewPage> {
                     GameWebViewPage.debugController = controller;
                     _controller = controller;
                     controller.addJavaScriptHandler(
+                      handlerName: 'turnsExit',
+                      callback: (args) {
+                        // 웹의 나가기/로비로 버튼 → 네이티브 화면 pop
+                        if (mounted && context.mounted) context.pop();
+                      },
+                    );
+                    controller.addJavaScriptHandler(
                       handlerName: 'turnsState',
                       callback: (args) {
                         debugPrint('[bridge] turnsState received '
@@ -271,23 +278,6 @@ class _GameWebViewPageState extends ConsumerState<GameWebViewPage> {
                   }),
                 ),
 
-              // 상단 우측 나가기 버튼 — 인게임(웹뷰 노출) 상태에서만
-              if (!_showNativeLobby)
-                Positioned(
-                  top: 4,
-                  right: 4,
-                  child: IconButton(
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.bg.withValues(alpha: 0.55),
-                    ),
-                    icon: const Icon(Icons.close,
-                        color: AppColors.muted, size: 20),
-                    onPressed: () async {
-                      final leave = await _confirmLeave();
-                      if (leave && mounted && context.mounted) context.pop();
-                    },
-                  ),
-                ),
             ],
           ),
         ),

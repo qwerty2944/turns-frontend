@@ -61,6 +61,18 @@ export const postToApp = (handler: string, payload: unknown) => {
   }
 };
 
+/**
+ * 게임 화면에서 로비로 나갈 때: 앱 안이면 네이티브 화면을 pop한다.
+ * SPA 라우팅(router.push)은 웹뷰 URL 인터셉트에 걸리지 않으므로, 웹뷰
+ * 안에서 웹 로비가 떠버리는 문제를 브릿지 이벤트로 해결한다.
+ * @returns true면 앱이 내비게이션을 가져갔으니 웹 라우팅은 생략할 것.
+ */
+export const exitGameToApp = (): boolean => {
+  if (!isInApp()) return false;
+  postToApp("turnsExit", true);
+  return true;
+};
+
 export type AppCommandMap = Record<string, (payload: unknown) => void>;
 
 /** Register the command sink Flutter calls via evaluateJavascript. */

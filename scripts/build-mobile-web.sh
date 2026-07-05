@@ -10,7 +10,7 @@ cd "$(dirname "$0")/.."
 
 BACKEND="${BACKEND:-https://kr-icn-41b6e883.colyseus.cloud}"
 WS_BACKEND="${WS_BACKEND:-$(echo "$BACKEND" | sed -e 's/^https:/wss:/' -e 's/^http:/ws:/')}"
-OUT_ZIP="mobile/assets/web.zip"
+OUT_ZIP="../mobile/assets/web.zip"
 
 echo "building static export → backend=$BACKEND ws=$WS_BACKEND"
 rm -rf out

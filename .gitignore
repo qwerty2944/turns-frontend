@@ -24,7 +24,3 @@ tsconfig.tsbuildinfo
 .DS_Store
 .idea/
 .vscode/
-
-# nested repos: qwerty2944/turns-backend, qwerty2944/turns-app (local dir: mobile/)
-/backend/
-/mobile/

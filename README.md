@@ -8,5 +8,5 @@
 ```bash
 npm install
 npm run dev            # http://localhost:3000
-./scripts/build-mobile-web.sh   # 앱 웹뷰용 정적 번들(mobile/assets/web.zip)
+./scripts/build-mobile-web.sh   # 앱 웹뷰용 정적 번들(../mobile/assets/web.zip)
 ```

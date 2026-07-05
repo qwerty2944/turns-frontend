@@ -37,3 +37,7 @@ frontend/tsconfig.tsbuildinfo
 # Misc
 *.tsbuildinfo
 app/assets/web.zip
+
+# split repos: backend → qwerty2944/turns-backend, app → qwerty2944/turns-app
+/backend/
+/app/
